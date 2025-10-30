@@ -25,7 +25,7 @@ import jakarta.persistence.OneToMany;
 @Entity	//guarda objetos de esta clase como filas en una talba
 @Table (name="conductor")
 public class Conductor extends Usuario {
-
+	
 	@OneToOne
 	@JoinColumn(name="carro_id")//definiendo la clave foranea
 	private Coche carro;

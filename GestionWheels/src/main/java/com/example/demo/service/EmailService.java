@@ -23,8 +23,8 @@ public class EmailService {
             helper.setTo("mantillajerson2@gmail.com"); // o el correo del administrador
             helper.setSubject("Nuevo usuario registrado");
 
-            String aprobarUrl = "http://localhost:8080/api/usuarios/aprobar?token=" +  usuario.getToken();
-            String rechazarUrl = "http://localhost:8080/api/usuarios/rechazar?token=" + usuario.getToken();
+            String aprobarUrl = "http://localhost:8080/usuario/aprobar?token=" +  usuario.getToken();
+            String rechazarUrl = "http://localhost:8080/usuario/rechazar?token=" + usuario.getToken();
 
             String contenidoHtml = """
             	    <html>

@@ -11,11 +11,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.demo.DTO.Login;
 import com.example.demo.model.Usuario;
 import com.example.demo.service.UsuarioService;
 
 @RestController
-@RequestMapping("/api/usuarios")
+@RequestMapping("/usuario")
 public class UsuarioRest {
 	@Autowired
 	private UsuarioService usuarioService;
@@ -46,5 +47,15 @@ public class UsuarioRest {
             return ResponseEntity.badRequest().body("Este usuario ya fue aprobado o rechazado.");
         }
         return ResponseEntity.ok("❌ Usuario rechazado.");
+    }
+    
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@RequestBody Login request) {
+        try {
+            Usuario usuario = usuarioService.ingresar(request.getCorreo(), request.getContraseña());
+            return ResponseEntity.ok(usuario);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 }

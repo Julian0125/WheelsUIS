@@ -1,5 +1,10 @@
 package com.example.demo.repository;
 
-public interface CocheRepository {
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.example.demo.model.Coche;
+
+
+public interface CocheRepository extends JpaRepository <Coche,Integer> {
 
 }

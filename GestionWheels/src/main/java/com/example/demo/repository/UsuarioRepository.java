@@ -10,4 +10,6 @@ import com.example.demo.model.Usuario;
 public interface UsuarioRepository  extends JpaRepository<Usuario,Integer> {
 	boolean existsByCorreo(String correo);
 	Optional<Usuario> findByToken(String token);
+    Optional<Usuario> findByCorreo(String correo);
+   
 }

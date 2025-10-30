@@ -25,7 +25,7 @@ import lombok.Setter;
 
 @Table (name="pasajero")
 public class Pasajero extends Usuario  {
-
+	
 	@OneToOne
 	@JoinColumn(name = "viaje_actual_id")
 	

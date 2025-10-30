@@ -1,8 +1,8 @@
 package com.example.demo.service;
 
-import java.util.HashMap;
+
 import java.util.List;
-import java.util.Map;
+
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -98,9 +98,27 @@ public class UsuarioService  {
 	}
 	
 
+	public Usuario ingresar(String correo, String contraseña) {
+	    // Buscar usuario por correo
+	    Usuario usuario = usuarioRepository.findByCorreo(correo)
+	            .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+
+	    // Verificar estado
+	    if (usuario.getEstado() != Estado.ACEPTADO) {
+	        throw new IllegalArgumentException("El usuario no está aceptado");
+	    }
+
+	    // Verificar contraseña (simple, sin cifrado)
+	    if (!usuario.getContraseña().equals(contraseña)) {
+	        throw new IllegalArgumentException("Contraseña incorrecta");
+	    }
+
+	    // Si todo está bien, devolver usuario
+	    return usuario;
+	}
+
 	
-	
-	//listare usuario
+	//listar usuario
 	public List<Usuario> listarUsuario(){
 		return usuarioRepository.findAll();
 	}
