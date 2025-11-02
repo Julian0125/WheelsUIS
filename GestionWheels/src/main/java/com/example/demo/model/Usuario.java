@@ -1,5 +1,8 @@
 package com.example.demo.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -30,9 +33,10 @@ public class Usuario {
 	private int codigo;
 	private int celular;
 	private String correo;
+	@JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
 	@Column(unique = true)
 	private String token;
-
+	@JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
 	private String contraseña;
     @Enumerated(EnumType.STRING)
     private Estado estado;

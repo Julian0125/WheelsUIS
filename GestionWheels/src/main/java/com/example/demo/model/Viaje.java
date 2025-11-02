@@ -4,6 +4,9 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -16,15 +19,27 @@ import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 @Entity	//guarda objetos de esta clase como filas en una talba
 @Table (name="viaje")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Viaje {
 	@Id//indica clave primeraria
 	@GeneratedValue(strategy = GenerationType.IDENTITY)//el valor se genera automaticamente
 	private int id;
     @ManyToOne
     @JoinColumn(name = "conductor_id")//definiendo la clave foranea
+    @JsonIgnoreProperties({"viajeActual", "viajes"})// ignora la lista de viajes al serializar el conductor
 	private Conductor conductor;
     @ManyToMany
     @JoinTable(
@@ -38,7 +53,7 @@ public class Viaje {
     private int cuposMaximos;
     
     @Enumerated(EnumType.STRING)
-    private estadoViaje EstadoViaje;
+    private EstadoViaje estadoViaje;
     
     private LocalDateTime  horaSalida;
     private String origen;
@@ -47,91 +62,13 @@ public class Viaje {
     @OneToMany(mappedBy = "viaje", cascade = CascadeType.ALL)// se le dice que ya en coordenda esta mapaeado con coordenda
     // y la cascada hace que todo lo que le ppase a vaije le pase a sus hijos (coordenada)
     private List<Coordenada> coordenadas = new ArrayList<>();
-
-	public Viaje(com.example.demo.model.Conductor conductor, List<Pasajero> pasajeros, int cuposMaximos,
-			estadoViaje estadoViaje, LocalDateTime horaSalida, String origen, String destino) {
-		super();
-		this.conductor = conductor;
-		this.pasajeros = pasajeros;
-		this.cuposMaximos = cuposMaximos;
-		this.EstadoViaje = estadoViaje;
-		this.horaSalida = horaSalida;
-		this.origen = origen;
-		this.destino = destino;
-		this.coordenadas = new ArrayList<>(); 
-	}
-
-	public int getId() {
-		return id;
-	}
-
-	public void setId(int id) {
-		this.id = id;
-	}
-
-	public Conductor getConductor() {
-		return conductor;
-	}
-
-	public void setConductor(Conductor conductor) {
-		this.conductor = conductor;
-	}
-
-	public List<Pasajero> getPasajeros() {
-		return pasajeros;
-	}
-
-	public void setPasajeros(List<Pasajero> pasajeros) {
-		this.pasajeros = pasajeros;
-	}
-
-	public int getCuposMaximos() {
-		return cuposMaximos;
-	}
-
-	public void setCuposMaximos(int cuposMaximos) {
-		this.cuposMaximos = cuposMaximos;
-	}
-
-	public estadoViaje getEstadoViaje() {
-		return EstadoViaje;
-	}
-
-	public void setEstadoViaje(estadoViaje estadoViaje) {
-		EstadoViaje = estadoViaje;
-	}
-
-	public LocalDateTime getHoraSalida() {
-		return horaSalida;
-	}
-
-	public void setHoraSalida(LocalDateTime horaSalida) {
-		this.horaSalida = horaSalida;
-	}
-
-	public String getOrigen() {
-		return origen;
-	}
-
-	public void setOrigen(String origen) {
-		this.origen = origen;
-	}
-
-	public String getDestino() {
-		return destino;
-	}
-
-	public void setDestino(String destino) {
-		this.destino = destino;
-	}
-
-	public List<Coordenada> getCoordenadas() {
-		return coordenadas;
-	}
-
-	public void setCoordenadas(List<Coordenada> coordenadas) {
-		this.coordenadas = coordenadas;
-	}
     
+    @OneToMany(mappedBy = "viaje", cascade = CascadeType.ALL)
+    private List<Comentario> comentarios = new ArrayList<>();
+    
+    @OneToOne(mappedBy = "viaje", cascade = CascadeType.ALL)
+    @JsonManagedReference
+    private Chat chat;
+
     
 }

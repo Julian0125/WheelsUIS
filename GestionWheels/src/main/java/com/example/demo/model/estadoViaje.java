@@ -1,6 +1,7 @@
 package com.example.demo.model;
 
-public enum estadoViaje {
+public enum EstadoViaje {
 	FINALIZADO,
-	ENCURSO
+	ENCURSO,
+	CANCELADO
 }

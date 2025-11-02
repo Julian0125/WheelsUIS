@@ -3,7 +3,7 @@ package com.example.demo.model;
 import java.util.ArrayList;
 import java.util.List;
 
-
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
@@ -27,10 +27,12 @@ import jakarta.persistence.OneToMany;
 public class Conductor extends Usuario {
 	
 	@OneToOne
-	@JoinColumn(name="carro_id")//definiendo la clave foranea
-	private Coche carro;
-    @OneToOne
+	@JoinColumn(name="vehiculo_id")//definiendo la clave foranea
+	private Vehiculo vehiculo;
+
     @JoinColumn(name = "viaje_actual_id") //definiendo la clave foranea
+    @OneToOne(mappedBy = "conductor")
+    @JsonIgnoreProperties("conductor")
 	private	Viaje viajeActual;
     @OneToMany(mappedBy = "conductor", cascade = CascadeType.ALL)// se le dice que ya en viaje esta mapaeado con conductor
     // y la cascada hace que todo lo que le ppase a conductor le pase a sus hijos (viajes)
