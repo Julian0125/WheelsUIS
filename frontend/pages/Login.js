@@ -1,9 +1,13 @@
 import React, { useState} from 'react'
-import { Text, StyleSheet, View, TextInput, Image, TouchableOpacity } from 'react-native'
+import { Text, StyleSheet, View, TextInput, Image, TouchableOpacity, Alert } from 'react-native'
 
-export default function Login(){
-  
-    return (
+export default function Login({navigation}){
+    const handleGoRegister = () => {
+        console.log('Pressed: go to RegistroUsuario')
+        navigation.navigate('RegistroUsuario')
+    }
+
+        return (
         <View style={styles.padre}>
             <View>
                 <Image source={require('../assets/wheelsuis.png')} style={styles.profile} />
@@ -14,7 +18,7 @@ export default function Login(){
                 </View>
 
                 <View style={styles.cajaTexto}>
-                    <TextInput placeholder="Contraseña" style={styles.input}  secureTextEntry={true}/>
+                    <TextInput placeholder="Contraseña" style={styles.input}  secureTextEntry/>
                 </View>
 
                 <View style={styles.PadreBoton}>
@@ -22,6 +26,14 @@ export default function Login(){
                         <Text style={styles.TextBoton}>Iniciar Sesión</Text>
                     </TouchableOpacity>
                 </View>
+
+                <View style={styles.registroContainer}>
+                    <Text style={styles.textoRegistro}>¿No tienes una cuenta?</Text>
+                    <TouchableOpacity onPress={handleGoRegister} activeOpacity={0.7}>
+                        <Text style={styles.linkRegistro}> Regístrate aquí</Text>
+                    </TouchableOpacity>
+                </View>
+
             </View >
         </View>
     )
@@ -46,7 +58,7 @@ const styles = StyleSheet.create({
         backgroundColor:'#f0f0f0',
         borderRadius:20,
         width:350,
-        padding:20,
+        padding:16,
         shadowColor:'#000',
         shadowOffset:{
             width:0,
@@ -57,10 +69,12 @@ const styles = StyleSheet.create({
         elevation:5
     },
     cajaTexto:{
-        paddingVertical:20,
+        paddingVertical:8,
+        paddingHorizontal:16,
         backgroundColor:'#cccccc40',
         borderRadius:30,
-        marginVertical:10,
+        marginVertical:6,
+        overflow:'hidden',
     } ,
     PadreBoton:{
         alignItems:'center',
@@ -77,6 +91,29 @@ const styles = StyleSheet.create({
         textAlign:'center',
     },
     input: {
-        paddingHorizontal: 15
-    }                     
+        width: '100%',
+        paddingHorizontal: 8,
+        paddingVertical: 6,
+        borderWidth: 0,
+        borderColor: 'transparent',
+        backgroundColor: 'transparent',
+        height: 36,
+        color: '#000'
+    },
+    registroContainer: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        marginTop: 20,
+        alignItems: 'center'
+    },
+    textoRegistro: {
+        color: '#666',
+        fontSize: 14
+    },
+    linkRegistro: {
+        color: '#207636ff',
+        fontSize: 14,
+        fontWeight: 'bold',
+        textDecorationLine: 'underline'
+    }                                    
 })
