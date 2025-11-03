@@ -2,10 +2,16 @@ import React, { useState} from 'react'
 import { Text, StyleSheet, View, TextInput, Image, TouchableOpacity, Alert } from 'react-native'
 
 export default function Login({navigation}){
+
     const handleGoRegister = () => {
         console.log('Pressed: go to RegistroUsuario')
         navigation.navigate('RegistroUsuario')
     }
+
+    const handleLogin = () => {
+        console.log('Pressed: go to Home')
+        navigation.navigate('Home');
+    };
 
         return (
         <View style={styles.padre}>
@@ -22,7 +28,7 @@ export default function Login({navigation}){
                 </View>
 
                 <View style={styles.PadreBoton}>
-                    <TouchableOpacity style ={styles.cajaBoton}> 
+                    <TouchableOpacity style={styles.cajaBoton} onPress={() => navigation.navigate('Home')}>
                         <Text style={styles.TextBoton}>Iniciar Sesión</Text>
                     </TouchableOpacity>
                 </View>
