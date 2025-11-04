@@ -1,8 +1,10 @@
 import axios from "axios";
 import { Platform } from "react-native";
 
+// Configuración de URLs según plataforma
+const DEV_IP = '10.0.2.2'; // Para emulador Android
+// Si usas dispositivo físico, cambia a tu IP local (ej: '192.168.1.100')
 
-const DEV_IP = '10.0.2.2'; 
 const BASE_URL = Platform.select({
     ios: 'http://localhost:8080',
     android: `http://${DEV_IP}:8080`,
@@ -12,7 +14,7 @@ const BASE_URL = Platform.select({
 // Crear instancia de axios
 const http = axios.create({
     baseURL: BASE_URL,
-    timeout: 15000, // Aumentado a 15 segundos para operaciones pesadas
+    timeout: 15000,
     headers: {
         'Content-Type': 'application/json',
     }
@@ -54,15 +56,25 @@ http.interceptors.response.use(
     }
 );
 
-// Servicio de Usuario
 const UsuarioService = {
-    // Registrar usuario
+    
     registrar: async (usuario) => {
         try {
             console.log("🔄 Intentando registrar usuario...");
-            const response = await http.post('/usuario/registrar', usuario);
             
-            // El backend en registro exitoso
+            const usuarioBackend = {
+                nombre: usuario.nombre.trim(),
+                codigo: parseInt(usuario.codigo),        
+                celular: parseInt(usuario.celular),      
+                correo: usuario.correo.trim().toLowerCase(),
+                contraseña: usuario.contraseña,            
+                tipo: usuario.tipoUsuario                
+            };
+
+            console.log("📤 Datos transformados para backend:", usuarioBackend);
+
+            const response = await http.post('/usuario/registrar', usuarioBackend);
+            
             return { 
                 success: true, 
                 message: 'Usuario registrado correctamente' 
@@ -70,7 +82,6 @@ const UsuarioService = {
         } catch (error) {
             console.error("❌ Error en registro:", error);
             
-            // Manejo específico de errores
             if (error.code === 'ECONNABORTED') {
                 return {
                     success: false,
@@ -79,15 +90,26 @@ const UsuarioService = {
             }
             
             if (error.response) {
-                // El servidor respondió con un error
+                // Extraer mensaje de error del backend
+                let errorMsg = 'Error al registrar usuario';
+                
+                if (error.response.data) {
+                    if (typeof error.response.data === 'string') {
+                        errorMsg = error.response.data;
+                    } else if (error.response.data.error) {
+                        errorMsg = error.response.data.error;
+                    } else if (error.response.data.message) {
+                        errorMsg = error.response.data.message;
+                    }
+                }
+                
                 return {
                     success: false,
-                    error: error.response.data || 'Error al registrar usuario'
+                    error: errorMsg
                 };
             }
             
             if (error.request) {
-                // No hubo respuesta del servidor
                 return {
                     success: false,
                     error: 'No se pudo conectar al servidor. Verifica tu conexión.'
@@ -106,8 +128,8 @@ const UsuarioService = {
         try {
             console.log("🔄 Intentando login...");
             const response = await http.post('/usuario/login', {
-                correo,
-                contraseña
+                correo: correo.trim().toLowerCase(),
+                contraseña: contraseña
             });
             
             return { 
@@ -119,10 +141,15 @@ const UsuarioService = {
             console.error("❌ Error en login:", error);
             
             if (error.response?.status === 400) {
-                // Credenciales inválidas o usuario no aprobado
+                let errorMsg = 'Credenciales inválidas';
+                
+                if (typeof error.response.data === 'string') {
+                    errorMsg = error.response.data;
+                }
+                
                 return {
                     success: false,
-                    error: error.response.data || 'Credenciales inválidas'
+                    error: errorMsg
                 };
             }
             
@@ -194,7 +221,7 @@ const UsuarioService = {
         }
     },
 
-    // Método auxiliar para verificar conectividad
+    // Método 
     verificarConexion: async () => {
         try {
             const response = await http.get('/usuario/listarUsuario');
