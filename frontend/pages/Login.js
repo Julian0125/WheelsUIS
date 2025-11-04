@@ -1,4 +1,5 @@
 
+
 import React, { useState} from 'react'
 import { Text, StyleSheet, View, TextInput, Image, TouchableOpacity, Alert } from 'react-native'
 
@@ -45,6 +46,8 @@ export default function Login({navigation}){
         </View>
     )
 
+
+const styles = StyleSheet.create({
 
     padre:{
         flex:1,
@@ -121,5 +124,5 @@ export default function Login({navigation}){
         fontWeight: 'bold',
         textDecorationLine: 'underline'
     }                                    
-});
+})}
 
