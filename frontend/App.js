@@ -7,7 +7,18 @@ import { NavigationContainer } from '@react-navigation/native';
 
 import Login from './pages/Login';
 import Home from './pages/Home';
+import RegistroUsuario from './pages/RegistroUsuario';
 
+const linking = {
+  prefixes: ['http://localhost:8081', 'https://localhost:8081'],
+  config: {
+    screens: {
+      Login: '',
+      RegistroUsuario: 'RegistroUsuario',
+      Home: 'Home',
+    },
+  },
+};
 
 export default function App() {
 
@@ -17,6 +28,12 @@ export default function App() {
   return (
     <Stack.Navigator>
       <Stack.Screen name="Login" component={Login}
+        options={{
+          headerStyle: { backgroundColor: '#207636ff' },
+          headerTitle: ''
+        }}
+      />
+      <Stack.Screen name="RegistroUsuario" component={RegistroUsuario}
         options={{
           headerStyle: { backgroundColor: '#207636ff' },
           headerTitle: ''
