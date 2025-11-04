@@ -37,17 +37,20 @@ public class Viaje {
 	@Id//indica clave primeraria
 	@GeneratedValue(strategy = GenerationType.IDENTITY)//el valor se genera automaticamente
 	private int id;
-    @ManyToOne
+    @ManyToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "conductor_id")//definiendo la clave foranea
     @JsonIgnoreProperties({"viajeActual", "viajes"})// ignora la lista de viajes al serializar el conductor
 	private Conductor conductor;
-    @ManyToMany
+    
+    
+    @ManyToMany(cascade = CascadeType.ALL)
     @JoinTable(
-        name = "viaje_pasajeros",//crea una table de nombre pasajerso
+        name = "viaje_pasajeros_historial",//crea una table de nombre pasajerso
         //fk compuesta
         joinColumns = @JoinColumn(name = "viaje_id"),//indica el nombre de la columna que referencia la tabla actual
         inverseJoinColumns = @JoinColumn(name = "pasajero_id") // indica la columna de la otra entidad
     )
+    @JsonIgnoreProperties({"historialViajes", "viajes"})
     private List<Pasajero> pasajeros = new ArrayList<>();
     
     private int cuposMaximos;
@@ -59,16 +62,18 @@ public class Viaje {
     private String origen;
     private String destino;
     
-    @OneToMany(mappedBy = "viaje", cascade = CascadeType.ALL)// se le dice que ya en coordenda esta mapaeado con coordenda
+    @OneToMany(mappedBy = "viaje", orphanRemoval = true,cascade = CascadeType.ALL)// se le dice que ya en coordenda esta mapaeado con coordenda
     // y la cascada hace que todo lo que le ppase a vaije le pase a sus hijos (coordenada)
     private List<Coordenada> coordenadas = new ArrayList<>();
     
-    @OneToMany(mappedBy = "viaje", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "viaje", orphanRemoval = true,cascade = CascadeType.ALL)
     private List<Comentario> comentarios = new ArrayList<>();
     
-    @OneToOne(mappedBy = "viaje", cascade = CascadeType.ALL)
+    @OneToOne(mappedBy = "viaje",cascade = CascadeType.ALL)
     @JsonManagedReference
     private Chat chat;
+    
+    
 
     
 }

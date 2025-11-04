@@ -6,6 +6,7 @@ import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.CrossOrigin;
 
 import com.example.demo.model.Conductor;
 import com.example.demo.model.Estado;
@@ -17,7 +18,7 @@ import com.example.demo.repository.PasajeroRepository;
 import com.example.demo.repository.UsuarioRepository;
 import java.util.UUID;
 
-
+@CrossOrigin(origins = "http://localhost:8081")
 @Service
 public class UsuarioService  {
 

@@ -41,4 +41,10 @@ public class ViajeRest {
  	        return ResponseEntity.badRequest().body(e.getMessage());
  	    }
  	}
+ 	
+ 	
+    @PostMapping("/{idViaje}/cancelar/{idConductor}")
+    public void cancelarViaje(@PathVariable("idViaje") int idViaje, @PathVariable("idConductor") int idConductor) {
+        viajeService.cancelarViaje(idViaje, idConductor);
+    }
 }
