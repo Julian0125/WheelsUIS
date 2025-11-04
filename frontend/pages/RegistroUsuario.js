@@ -9,7 +9,7 @@ export default function RegistroUsuario({ navigation }){
     const [codigo, setCodigo] = useState('');
     const [celular, setCelular] = useState('');
     const [correo, setCorreo] = useState('');
-    const [password, setPassword] = useState('');
+    const [contraseña, setContraseña] = useState('');
     const [tipoUsuario, setTipoUsuario] = useState("");
     const [loading, setLoading] = useState(false);
 
@@ -20,7 +20,7 @@ export default function RegistroUsuario({ navigation }){
 
     const handleRegistro = async () => {
         // Validaciones
-        if (!nombre || !codigo || !celular || !correo || !password || !tipoUsuario) {
+        if (!nombre || !codigo || !celular || !correo || !contraseña || !tipoUsuario) {
             Alert.alert('Error', 'Todos los campos son obligatorios');
             return;
         }
@@ -30,7 +30,7 @@ export default function RegistroUsuario({ navigation }){
             return;
         }
 
-        if (password.length < 6) {
+        if (contraseña.length < 6) {
             Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
             return;
         }
@@ -42,7 +42,7 @@ export default function RegistroUsuario({ navigation }){
                 codigo,
                 celular,
                 correo,
-                contraseña: password,
+                contraseña,
                 tipoUsuario
             };
 
@@ -53,7 +53,7 @@ export default function RegistroUsuario({ navigation }){
                 Alert.alert('Éxito', 'Usuario registrado correctamente. Por favor verifica tu correo para activar tu cuenta.', [
                     {
                         text: 'OK',
-                        onPress: () => navigation.navigate('Login')
+                        onPress: () => navigation.replace('Login')
                     }
                 ]);
             } else {
@@ -109,8 +109,8 @@ export default function RegistroUsuario({ navigation }){
                      <TextInput 
                         placeholder="Contraseña" 
                         style={styles.input}
-                        value={password}
-                        onChangeText={setPassword}
+                        value={contraseña}
+                        onChangeText={setContraseña}
                         secureTextEntry
                      />
                 </View>
