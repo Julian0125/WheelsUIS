@@ -132,5 +132,31 @@ public class ViajeService {
 	     System.out.println("Viaje cancelado correctamente por el conductor ID " + idConductor);
 	 }
 
+	 public Viaje obtenerViajeActivoPorConductor(int idConductor) {
+    return viajeRepository.findByConductorIdAndEstadoViaje(idConductor, EstadoViaje.ENCURSO)
+            .orElseThrow(() -> new IllegalArgumentException("No hay viaje activo para este conductor"));
+
+
+}
+
+public List<Viaje> listarHistorialPorConductor(int idConductor) {
+    List<EstadoViaje> estadosHistorial = List.of(EstadoViaje.FINALIZADO, EstadoViaje.CANCELADO);
+    return viajeRepository.findByConductorIdAndEstadoViajeIn(idConductor, estadosHistorial);
+}
+
+public List<Viaje> listarHistorialPorPasajero(int idPasajero) {
+    List<EstadoViaje> estadosHistorial = List.of(EstadoViaje.FINALIZADO, EstadoViaje.CANCELADO);
+    return viajeRepository.findByPasajeros_IdAndEstadoViajeIn(idPasajero, estadosHistorial);
+}
+
+public Viaje obtenerViajeActualPorPasajero(int idPasajero) {
+    return viajeRepository.findByPasajeros_IdAndEstadoViaje(idPasajero, EstadoViaje.ENCURSO)
+            .orElseThrow(() -> new IllegalArgumentException("El pasajero no tiene un viaje activo"));
+}
+
+
+
+
+
 
 }
