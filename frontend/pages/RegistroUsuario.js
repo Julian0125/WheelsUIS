@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Text, StyleSheet, View, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native'
+import { Text, StyleSheet, View, TextInput, TouchableOpacity, Alert, ActivityIndicator , Platform} from 'react-native'
 import { Picker } from '@react-native-picker/picker'
 import { ScrollView } from 'react-native';
 import UsuarioService from '../services/api';
@@ -50,19 +50,25 @@ export default function RegistroUsuario({ navigation }){
             setLoading(false);
 
             if (result.success) {
-                Alert.alert('Éxito', 'Usuario registrado correctamente. Por favor verifica tu correo para activar tu cuenta.', [
-                    {
-                        text: 'OK',
-                        onPress: () => navigation.replace('Login')
-                    }
-                ]);
+                if (Platform.OS === 'web') {
+            
+            window.alert('Usuario registrado correctamente. Por favor verifica tu correo para activar tu cuenta.');
+            navigation.replace('Login');
             } else {
-                Alert.alert('Error', result.error || 'Error al registrar usuario');
+            Alert.alert(
+                'Éxito',
+                'Usuario registrado correctamente. Por favor verifica tu correo para activar tu cuenta.',
+                [{ text: 'OK', onPress: () => navigation.replace('Login') }]
+            );
             }
+        } else {
+            Alert.alert('Error', result.error || 'Error al registrar usuario');
+        }
         } catch (error) {
-            setLoading(false);
-            Alert.alert('Error', 'Error al conectar con el servidor');
-            console.error(error);
+        Alert.alert('Error', 'Error al conectar con el servidor');
+        console.error(error);
+        } finally {
+        setLoading(false);
         }
     };
 
