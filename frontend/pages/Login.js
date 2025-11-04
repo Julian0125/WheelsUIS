@@ -44,7 +44,7 @@ export default function Login({navigation}){
             <View style ={styles.tarjeta}>
                 <View style={styles.cajaTexto}>
                     <TextInput 
-                        placeholder="correo@uis.edu.co" 
+                        placeholder="@correo.uis.edu.co" 
                         style={styles.input}
                         value={correo}
                         onChangeText={setCorreo}

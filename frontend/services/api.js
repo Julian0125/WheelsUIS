@@ -1,7 +1,7 @@
 import axios from "axios";
 import { Platform } from "react-native";
 
-// Obtén la IP de tu máquina para desarrollo local
+
 const DEV_IP = '10.0.2.2'; // Para emulador Android
 const BASE_URL = Platform.select({
     ios: 'http://localhost:8080',
