@@ -17,8 +17,8 @@ import com.example.demo.model.Usuario;
 import com.example.demo.service.UsuarioService;
 
 @RestController
-@CrossOrigin(origins = "http://localhost:8081")
 @RequestMapping("/usuario")
+@CrossOrigin(origins = "*") 
 public class UsuarioRest {
 	@Autowired
 	private UsuarioService usuarioService;

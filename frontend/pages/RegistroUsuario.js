@@ -1,30 +1,75 @@
-import React, { useState} from 'react'
-import { Text, StyleSheet, View, TextInput, TouchableOpacity, Alert } from 'react-native'
+import React, { useState } from 'react'
+import { Text, StyleSheet, View, TextInput, TouchableOpacity, Alert, ActivityIndicator , Platform} from 'react-native'
 import { Picker } from '@react-native-picker/picker'
 import { ScrollView } from 'react-native';
-
+import UsuarioService from '../services/api';
 
 export default function RegistroUsuario({ navigation }){
     const [nombre, setNombre] = useState('');
     const [codigo, setCodigo] = useState('');
     const [celular, setCelular] = useState('');
     const [correo, setCorreo] = useState('');
-    const [password, setPassword] = useState('');
-    // use null so native picker doesn't receive an empty-string value which can cause a type error
+    const [contraseña, setContraseña] = useState('');
     const [tipoUsuario, setTipoUsuario] = useState("");
+    const [loading, setLoading] = useState(false);
 
-    const handleRegistro = () => {
-        if (!nombre || !codigo || !celular || !correo || !password || !tipoUsuario === "") {
+    const validarCorreo = (email) => {
+        const regex = /^[a-zA-Z0-9._-]+@correo\.uis\.edu\.co$/;
+        return regex.test(email);
+    };
+
+    const handleRegistro = async () => {
+        // Validaciones
+        if (!nombre || !codigo || !celular || !correo || !contraseña || !tipoUsuario) {
             Alert.alert('Error', 'Todos los campos son obligatorios');
             return;
         }
-        // aca va la logica para registrar el usuario cuando se haga la conexion con el backend
-        Alert.alert('Éxito', 'Usuario registrado correctamente', [
-            {
-                text: 'OK',
-                onPress: () => navigation.navigate('Login')
+
+        if (!validarCorreo(correo)) {
+            Alert.alert('Error', 'El correo debe ser un correo UIS válido (@correo.uis.edu.co)');
+            return;
+        }
+
+        if (contraseña.length < 6) {
+            Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const usuario = {
+                nombre,
+                codigo,
+                celular,
+                correo,
+                contraseña,
+                tipoUsuario
+            };
+
+            const result = await UsuarioService.registrar(usuario);
+            setLoading(false);
+
+            if (result.success) {
+                if (Platform.OS === 'web') {
+            
+            window.alert('Usuario registrado correctamente. Por favor verifica tu correo para activar tu cuenta.');
+            navigation.replace('Login');
+            } else {
+            Alert.alert(
+                'Éxito',
+                'Usuario registrado correctamente. Por favor verifica tu correo para activar tu cuenta.',
+                [{ text: 'OK', onPress: () => navigation.replace('Login') }]
+            );
             }
-        ]);
+        } else {
+            Alert.alert('Error', result.error || 'Error al registrar usuario');
+        }
+        } catch (error) {
+        Alert.alert('Error', 'Error al conectar con el servidor');
+        console.error(error);
+        } finally {
+        setLoading(false);
+        }
     };
 
     return(
@@ -57,7 +102,7 @@ export default function RegistroUsuario({ navigation }){
 
                 <View style={styles.cajaTexto}>
                      <TextInput 
-                        placeholder="correo@uis.edu.co" 
+                        placeholder="@correo.uis.edu.co" 
                         style={styles.input}
                         value={correo}
                         onChangeText={setCorreo}
@@ -70,11 +115,12 @@ export default function RegistroUsuario({ navigation }){
                      <TextInput 
                         placeholder="Contraseña" 
                         style={styles.input}
-                        value={password}
-                        onChangeText={setPassword}
+                        value={contraseña}
+                        onChangeText={setContraseña}
                         secureTextEntry
                      />
                 </View>
+
 <View style={styles.cajaTexto}>
     <Text style={{ color: '#666', marginBottom: 10 }}>Tipo de usuario:</Text>
     <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
@@ -94,12 +140,18 @@ export default function RegistroUsuario({ navigation }){
     </View>
 </View>
 
+
                 <View style={styles.PadreBoton}>
                     <TouchableOpacity 
-                        style={styles.cajaBoton}
+                        style={[styles.cajaBoton, loading && styles.botonDeshabilitado]}
                         onPress={handleRegistro}
+                        disabled={loading}
                     > 
-                        <Text style={styles.TextBoton}>Registrar Usuario</Text>
+                        {loading ? (
+                            <ActivityIndicator color="white" />
+                        ) : (
+                            <Text style={styles.TextBoton}>Registrar Usuario</Text>
+                        )}
                     </TouchableOpacity>
                 </View>
 
@@ -200,12 +252,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#e0e0e0',
     minWidth: 120,
     alignItems: 'center'
-},
-tipoButtonActive: {
+    },
+    tipoButtonActive: {
     backgroundColor: '#207636ff',
-},
-tipoButtonText: {
+    },
+    tipoButtonText: {
     color: '#000',
     fontWeight: '500'
-}                     
+    }               
 })

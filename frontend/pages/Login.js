@@ -1,18 +1,39 @@
-
-
-import React, { useState} from 'react'
-import { Text, StyleSheet, View, TextInput, Image, TouchableOpacity, Alert } from 'react-native'
+import React, { useState } from 'react'
+import { Text, StyleSheet, View, TextInput, Image, TouchableOpacity, Alert, ActivityIndicator } from 'react-native'
+import UsuarioService from '../services/api'
 
 export default function Login({navigation}){
+    const [correo, setCorreo] = useState('')
+    const [contraseña, setContraseña] = useState('')
+    const [loading, setLoading] = useState(false)
 
     const handleGoRegister = () => {
         console.log('Pressed: go to RegistroUsuario')
         navigation.navigate('RegistroUsuario')
     }
 
-    const handleLogin = () => {
-        console.log('Pressed: go to Home')
-        navigation.navigate('Home');
+    const handleLogin = async () => {
+        if (!correo || !contraseña) {
+            Alert.alert('Error', 'Por favor ingresa correo y contraseña')
+            return
+        }
+        
+        setLoading(true)
+        try {
+            const result = await UsuarioService.login(correo, contraseña)
+            setLoading(false)
+            
+            if (result.success) {
+                console.log('Login exitoso:', result.data)
+                navigation.navigate('Home')
+            } else {
+                Alert.alert('Error', result.error || 'Error al iniciar sesión')
+            }
+        } catch (error) {
+            setLoading(false)
+            Alert.alert('Error', 'Error al conectar con el servidor')
+            console.error(error)
+        }
     };
 
         return (
@@ -22,16 +43,38 @@ export default function Login({navigation}){
             </View>
             <View style ={styles.tarjeta}>
                 <View style={styles.cajaTexto}>
-                    <TextInput placeholder="correo@uis.edu.co" style={styles.input} />
+                    <TextInput 
+                        placeholder="@correo.uis.edu.co" 
+                        style={styles.input}
+                        value={correo}
+                        onChangeText={setCorreo}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                    />
                 </View>
 
                 <View style={styles.cajaTexto}>
-                    <TextInput placeholder="Contraseña" style={styles.input}  secureTextEntry/>
+                    <TextInput 
+                        placeholder="Contraseña" 
+                        style={styles.input}
+                        value={contraseña}
+                        onChangeText={setContraseña}
+                        secureTextEntry
+                        autoCapitalize="none"
+                    />
                 </View>
 
                 <View style={styles.PadreBoton}>
-                    <TouchableOpacity style={styles.cajaBoton} onPress={() => navigation.navigate('Home')}>
-                        <Text style={styles.TextBoton}>Iniciar Sesión</Text>
+                    <TouchableOpacity 
+                        style={[styles.cajaBoton, loading && styles.botonDeshabilitado]} 
+                        onPress={handleLogin}
+                        disabled={loading}
+                    >
+                        {loading ? (
+                            <ActivityIndicator color="white" />
+                        ) : (
+                            <Text style={styles.TextBoton}>Iniciar Sesión</Text>
+                        )}
                     </TouchableOpacity>
                 </View>
 
@@ -46,9 +89,12 @@ export default function Login({navigation}){
         </View>
     )
 
+   }
 
 const styles = StyleSheet.create({
-
+    botonDeshabilitado: {
+        opacity: 0.7,
+    },
     padre:{
         flex:1,
         justifyContent:'center',
@@ -124,5 +170,4 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         textDecorationLine: 'underline'
     }                                    
-})}
-
+})
