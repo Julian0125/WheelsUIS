@@ -2,7 +2,9 @@
 FROM gradle:8.5-jdk17 AS build
 WORKDIR /app
 COPY . .
+WORKDIR /app/GestionWheels
 RUN gradle build -x test
+
 
 
 # ---------- ETAPA 2: EJECUCIÓN ----------
