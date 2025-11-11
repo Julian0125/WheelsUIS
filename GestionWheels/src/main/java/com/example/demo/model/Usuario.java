@@ -31,6 +31,7 @@ public class Usuario {
 	private String nombre;
 	private int codigo;
 	private int celular;
+	@Column(unique = true)
 	private String correo;
 	@JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
 	@Column(unique = true)

@@ -95,41 +95,61 @@ public class ViajeService {
 		    
 		    return viaje;
 		}
-	 
 	 @Transactional
-	 public void cancelarViaje(int idViaje, int idConductor) {
+	 public void cancelarViaje(int idViaje, int idUsuario, boolean esConductor) {
 	     Viaje viaje = viajeRepository.findById(idViaje)
 	             .orElseThrow(() -> new IllegalArgumentException("Viaje no encontrado"));
 
-	     // Clonar lista para evitar ConcurrentModificationException
-	     List<Pasajero> pasajeros = new ArrayList<>(viaje.getPasajeros());
+	     if (esConductor) {
+	         // ===== CONDUCTOR CANCELA: Elimina el viaje completo =====
+	         
+	         // Clonar lista para evitar ConcurrentModificationException
+	         List<Pasajero> pasajeros = new ArrayList<>(viaje.getPasajeros());
 
-	     // Desvincular pasajeros
-	     for (Pasajero pasajero : pasajeros) {
+	         // Desvincular pasajeros
+	         for (Pasajero pasajero : pasajeros) {
+	             pasajero.setViajeActual(null);
+	             pasajeroRepository.save(pasajero);
+
+	             String mensaje = "El viaje con destino a " + viaje.getDestino() + " fue cancelado por el conductor.";
+	             notificacionService.enviar(pasajero.getId(), mensaje);
+	         }
+
+	         // Limpiar todas las relaciones antes de eliminar
+	         viaje.getPasajeros().clear();
+	         viaje.setConductor(null);
+
+	         // Guardar el viaje limpio antes de eliminar
+	         viajeRepository.save(viaje);
+	         // Ahora sí eliminar
+	         viajeRepository.delete(viaje);
+
+	         System.out.println("Viaje cancelado completamente por el conductor ID " + idUsuario);
+	         
+	     } else {
+	         // ===== PASAJERO CANCELA: Solo se desvincula él =====
+	         
+	         Pasajero pasajero = pasajeroRepository.findById(idUsuario)
+	                 .orElseThrow(() -> new IllegalArgumentException("Pasajero no encontrado"));
+
+	         // Verificar que el pasajero esté en este viaje
+	         if (!viaje.getPasajeros().contains(pasajero)) {
+	             throw new IllegalArgumentException("El pasajero no está en este viaje");
+	         }
+
+	         // Desvincular solo este pasajero
+	         viaje.getPasajeros().remove(pasajero);
 	         pasajero.setViajeActual(null);
+	         
 	         pasajeroRepository.save(pasajero);
+	         viajeRepository.save(viaje);
 
-	         String mensaje = "El viaje con destino a " + viaje.getDestino() + " fue cancelado por el conductor.";
-	         notificacionService.enviar(pasajero.getId(), mensaje);
+	         // Notificar al conductor
+	         String mensaje = "El pasajero " + pasajero.getNombre() + " ha cancelado su participación en el viaje a " + viaje.getDestino();
+	         notificacionService.enviar(viaje.getConductor().getId(), mensaje);
+
+	         System.out.println("Pasajero ID " + idUsuario + " se ha desvinculado del viaje ID " + idViaje);
 	     }
-
-	     // Limpiar todas las relaciones antes de eliminar
-	     viaje.getPasajeros().clear();
-	     viaje.setConductor(null);
-
-	     // Guardar el viaje limpio antes de eliminar
-	     viajeRepository.save(viaje);
-	     viajeRepository.flush(); // Sincroniza el estado en la BD
-	     System.out.println("Viaje a eliminar: " + viaje.getId());
-	     System.out.println("Pasajeros asociados: " + viaje.getPasajeros().size());
-	     System.out.println("Chat: " + (viaje.getChat() != null ? viaje.getChat().getId() : "null"));
-	     System.out.println("Comentarios: " + (viaje.getComentarios() != null ? viaje.getComentarios().size() : "0"));
-	     System.out.println("Coordenadas: " + (viaje.getCoordenadas() != null ? viaje.getCoordenadas().size() : "0"));
-
-	     // Ahora sí eliminar
-	     viajeRepository.delete(viaje);
-
-	     System.out.println("Viaje cancelado correctamente por el conductor ID " + idConductor);
 	 }
 
 	 public Viaje obtenerViajeActivoPorConductor(int idConductor) {
@@ -138,21 +158,21 @@ public class ViajeService {
 
 
 }
+		
+		public List<Viaje> listarHistorialPorConductor(int idConductor) {
+		    List<EstadoViaje> estadosHistorial = List.of(EstadoViaje.FINALIZADO, EstadoViaje.CANCELADO);
+		    return viajeRepository.findByConductorIdAndEstadoViajeIn(idConductor, estadosHistorial);
+		}
 
-public List<Viaje> listarHistorialPorConductor(int idConductor) {
-    List<EstadoViaje> estadosHistorial = List.of(EstadoViaje.FINALIZADO, EstadoViaje.CANCELADO);
-    return viajeRepository.findByConductorIdAndEstadoViajeIn(idConductor, estadosHistorial);
-}
+		public List<Viaje> listarHistorialPorPasajero(int idPasajero) {
+		    List<EstadoViaje> estadosHistorial = List.of(EstadoViaje.FINALIZADO, EstadoViaje.CANCELADO);
+		    return viajeRepository.findByPasajeros_IdAndEstadoViajeIn(idPasajero, estadosHistorial);
+		}
 
-public List<Viaje> listarHistorialPorPasajero(int idPasajero) {
-    List<EstadoViaje> estadosHistorial = List.of(EstadoViaje.FINALIZADO, EstadoViaje.CANCELADO);
-    return viajeRepository.findByPasajeros_IdAndEstadoViajeIn(idPasajero, estadosHistorial);
-}
-
-public Viaje obtenerViajeActualPorPasajero(int idPasajero) {
-    return viajeRepository.findByPasajeros_IdAndEstadoViaje(idPasajero, EstadoViaje.ENCURSO)
-            .orElseThrow(() -> new IllegalArgumentException("El pasajero no tiene un viaje activo"));
-}
+		public Viaje obtenerViajeActualPorPasajero(int idPasajero) {
+		    return viajeRepository.findByPasajeros_IdAndEstadoViaje(idPasajero, EstadoViaje.ENCURSO)
+		            .orElseThrow(() -> new IllegalArgumentException("El pasajero no tiene un viaje activo"));
+		}
 
 
 

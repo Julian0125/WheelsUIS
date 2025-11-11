@@ -41,6 +41,9 @@ public class UsuarioService  {
 	        throw new IllegalArgumentException("Nombre obligatorio");
 	    if (usuario.getCorreo() == null || usuario.getCorreo().isEmpty())
 	        throw new IllegalArgumentException("Correo obligatorio");
+        if (usuarioRepository.existsByCorreo(usuario.getCorreo())) {
+            throw new IllegalArgumentException("El correo ya está registrado");
+        }
 	    if (usuario.getTipo() == null)
 	        throw new IllegalArgumentException("Tipo de usuario obligatorio");
 	    if (usuario.getContraseña() == null || usuario.getContraseña().isEmpty())

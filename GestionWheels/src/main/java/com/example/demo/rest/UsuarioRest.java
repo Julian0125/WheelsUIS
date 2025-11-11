@@ -23,11 +23,15 @@ public class UsuarioRest {
 	@Autowired
 	private UsuarioService usuarioService;
 	
-    @PostMapping("/registrar")
-    public void registrarUsuario(@RequestBody Usuario usuario) {
-         usuarioService.registrarUsuarioTemporal(usuario);
-    }
-    
+	@PostMapping("/registrar")
+	public ResponseEntity<?> registrarUsuarioTemporal(@RequestBody Usuario usuario) {
+	    try {
+	        usuarioService.registrarUsuarioTemporal(usuario);
+	        return ResponseEntity.ok("Usuario registrado exitosamente. Revisa tu correo para confirmar.");
+	    } catch (IllegalArgumentException e) {
+	        return ResponseEntity.badRequest().body(e.getMessage());
+	    }
+	}
     @GetMapping("/listarUsuario")
     public List<Usuario> listarUsuario(){
     	return usuarioService.listarUsuario();
