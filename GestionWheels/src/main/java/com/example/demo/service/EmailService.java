@@ -1,31 +1,27 @@
 package com.example.demo.service;
 
 import com.example.demo.model.Usuario;
-import jakarta.mail.internet.MimeMessage;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.Map;
 
 @Service
 public class EmailService {
 
-    @Autowired
-    private JavaMailSender mailSender;
+    private static final String API_URL = "https://api.brevo.com/v3/smtp/email";
+    private static final String API_KEY = System.getenv("BREVO_API_KEY"); // ⚠️ Pónla en Render como variable de entorno
 
     public void notificarNuevoUsuario(Usuario usuario) {
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
-            helper.setTo("mantillajerson2@gmail.com");
-            helper.setSubject("Nuevo usuario registrado - WheelsUIS");
-
+            // Construcción de URLs
             String baseUrl = "https://wheelsuis.onrender.com";
             String aprobarUrl = baseUrl + "/usuario/aprobar?token=" + usuario.getToken();
             String rechazarUrl = baseUrl + "/usuario/rechazar?token=" + usuario.getToken();
 
-            String contenidoHtml = String.format("""
+            // HTML del correo
+            String htmlContent = String.format("""
                 <html>
                 <body style='font-family: Arial, sans-serif;'>
                     <h2>Nuevo usuario registrado</h2>
@@ -45,24 +41,32 @@ public class EmailService {
                     </p>
                 </body>
                 </html>
-            """,
-                usuario.getNombre(),
-                usuario.getCorreo(),
-                usuario.getCodigo(),
-                usuario.getCelular(),
-                usuario.getTipo(),
-                aprobarUrl,
-                rechazarUrl
+            """, usuario.getNombre(), usuario.getCorreo(), usuario.getCodigo(),
+                    usuario.getCelular(), usuario.getTipo(), aprobarUrl, rechazarUrl);
+
+            // Estructura del cuerpo
+            Map<String, Object> emailBody = Map.of(
+                "sender", Map.of("email", "mantillajerson2@gmail.com", "name", "WheelsUIS"),
+                "to", new Object[]{ Map.of("email", "mantillajerson2@gmail.com") },
+                "subject", "Nuevo usuario registrado - WheelsUIS",
+                "htmlContent", htmlContent
             );
 
-            helper.setText(contenidoHtml, true);
-            mailSender.send(message);
+            // Configuración de cabeceras
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("api-key", API_KEY);
+            headers.setContentType(MediaType.APPLICATION_JSON);
 
-            System.out.println("✅ Correo enviado correctamente con Brevo");
+            // Petición HTTP
+            RestTemplate restTemplate = new RestTemplate();
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(emailBody, headers);
+            ResponseEntity<String> response = restTemplate.postForEntity(API_URL, request, String.class);
+
+            System.out.println("✅ Correo enviado (Brevo API) - Status: " + response.getStatusCode());
 
         } catch (Exception e) {
             e.printStackTrace();
-            throw new RuntimeException("❌ Error al enviar correo con Brevo", e);
+            throw new RuntimeException("❌ Error al enviar correo con la API de Brevo", e);
         }
     }
 }
