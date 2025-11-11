@@ -1,73 +1,73 @@
 package com.example.demo.service;
 
-import org.springframework.beans.factory.annotation.Autowired;
-
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
-import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.CrossOrigin;
-
 import com.example.demo.model.Usuario;
+import com.sendgrid.*;
+import com.sendgrid.helpers.mail.Mail;
+import com.sendgrid.helpers.mail.objects.Content;
+import com.sendgrid.helpers.mail.objects.Email;
+import org.springframework.stereotype.Service;
 
-import jakarta.mail.internet.MimeMessage;
-@CrossOrigin(origins = "http://localhost:8081")
+import java.io.IOException;
+
 @Service
 public class EmailService {
-	@Autowired
-	 private JavaMailSender mailSender;
-	
+
+    private static final String FROM_EMAIL = "mantillajerson2@gmail.com";
+    private static final String SENDGRID_API_KEY = System.getenv("SENDGRID_API_KEY");
 
     public void notificarNuevoUsuario(Usuario usuario) {
         try {
-        	MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            // URLs de aprobación y rechazo
+            String baseUrl = "https://wheelsuis.onrender.com";
+            String aprobarUrl = baseUrl + "/usuario/aprobar?token=" + usuario.getToken();
+            String rechazarUrl = baseUrl + "/usuario/rechazar?token=" + usuario.getToken();
 
-            helper.setTo("mantillajerson2@gmail.com"); // o el correo del administrador
-            helper.setSubject("Nuevo usuario registrado");
+            // Contenido HTML
+            String htmlContent = String.format("""
+                <html>
+                    <body style='font-family: Arial, sans-serif;'>
+                        <h2>Nuevo usuario registrado</h2>
+                        <p>Se ha registrado un nuevo usuario:</p>
+                        <ul>
+                            <li><b>Nombre:</b> %s</li>
+                            <li><b>Correo:</b> %s</li>
+                            <li><b>Código:</b> %s</li>
+                            <li><b>Celular:</b> %s</li>
+                            <li><b>Tipo de Usuario:</b> %s</li>
+                        </ul>
+                        <p>Revisa y decide si aceptarlo:</p>
+                        <p>
+                            <a href='%s' style='background-color:#28a745;color:white;padding:10px 15px;text-decoration:none;border-radius:5px;'>✅ Aceptar</a>
+                            &nbsp;
+                            <a href='%s' style='background-color:#dc3545;color:white;padding:10px 15px;text-decoration:none;border-radius:5px;'>❌ Rechazar</a>
+                        </p>
+                    </body>
+                </html>
+            """, usuario.getNombre(), usuario.getCorreo(), usuario.getCodigo(),
+                    usuario.getCelular(), usuario.getTipo(), aprobarUrl, rechazarUrl);
 
-			String baseUrl = "https://wheelsuis.onrender.com";
-			String aprobarUrl = baseUrl + "/usuario/aprobar?token=" + usuario.getToken();
-			String rechazarUrl = baseUrl + "/usuario/rechazar?token=" + usuario.getToken();
-            String contenidoHtml = """
-            	    <html>
-            	    <body style='font-family: Arial, sans-serif;'>
-            	        <h2>Nuevo usuario registrado</h2>
-            	        <p>Se ha registrado un nuevo usuario:</p>
-            	        <ul>
-            	            <li><b>Nombre:</b> %s</li>
-            	            <li><b>Correo:</b> %s</li>
-            	            <li><b>Código:</b> %s</li>
-            	            <li><b>Celular:</b> %s</li>
-            	            <li><b>Tipo de Usuario:</b> %s</li>
-            	        </ul>
-            	        <p>Revisa y decide si aceptarlo:</p>
-            	        <p>
-            	            <a href='%s' 
-            	               style='background-color:#28a745;color:white;padding:10px 15px;text-decoration:none;border-radius:5px;'>✅ Aceptar</a>
-            	            &nbsp;
-            	            <a href='%s' 
-            	               style='background-color:#dc3545;color:white;padding:10px 15px;text-decoration:none;border-radius:5px;'>❌ Rechazar</a>
-            	        </p>
-            	    </body>
-            	    </html>
-            	""".formatted(
-            	    usuario.getNombre(),
-            	    usuario.getCorreo(),
-            	    usuario.getCodigo(),
-            	    usuario.getCelular(),
-            	    usuario.getTipo(),
-            	    aprobarUrl,
-            	    rechazarUrl
-            	);
+            // Construcción del correo
+            Email from = new Email(FROM_EMAIL);
+            Email to = new Email("mantillajerson2@gmail.com"); // administrador
+            String subject = "Nuevo usuario registrado - WheelsUIS";
+            Content content = new Content("text/html", htmlContent);
+            Mail mail = new Mail(from, subject, to, content);
 
-                helper.setText(contenidoHtml, true); // <- true para HTML
+            // Envío con SendGrid
+            SendGrid sg = new SendGrid(SENDGRID_API_KEY);
+            Request request = new Request();
+            request.setMethod(Method.POST);
+            request.setEndpoint("mail/send");
+            request.setBody(mail.build());
 
-                mailSender.send(message);
+            // ⚠️ Importar explícitamente la clase de SendGrid:
+            com.sendgrid.Response response = sg.api(request);
 
+            System.out.println("✅ Correo enviado con estado: " + response.getStatusCode());
 
-        } catch (Exception e) {
+        } catch (IOException e) {
             e.printStackTrace();
-            throw new RuntimeException("Error al enviar correo", e);
+            throw new RuntimeException("Error al enviar correo con SendGrid", e);
         }
     }
 }
