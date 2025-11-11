@@ -4,10 +4,12 @@ import 'react-native-gesture-handler';
 
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import { NavigationContainer } from '@react-navigation/native';
+import { AuthProvider } from './context/AuthContext';
 
 import Login from './pages/Login';
 import Home from './pages/Home';
 import RegistroUsuario from './pages/RegistroUsuario';
+import ChatScreen from './pages/chat';
 
 const linking = {
   prefixes: ['http://localhost:8081', 'https://localhost:8081'],
@@ -42,14 +44,24 @@ export default function App() {
       <Stack.Screen name="Home" component={Home} 
        options={{
           headerStyle: { backgroundColor: '#207636ff' },
-        }}/>
-    </Stack.Navigator>
+        }}
+      />
+      <Stack.Screen name="ChatScreen" component={ChatScreen} 
+       options={{
+          headerStyle: { backgroundColor: '#207636ff' },
+        }}
+      />
+      </Stack.Navigator>
+      
   );
 }
   return (
-    <NavigationContainer>
-      <MyStack/>
-    </NavigationContainer>
+    
+    <AuthProvider>
+      <NavigationContainer linking={linking}>
+        <MyStack/>
+      </NavigationContainer>
+    </AuthProvider>
   );
 }
 
