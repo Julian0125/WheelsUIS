@@ -26,35 +26,16 @@ export default function App() {
 
   const Stack = createNativeStackNavigator();
 
-  function MyStack() {
-  return (
-    <Stack.Navigator>
-      <Stack.Screen name="Login" component={Login}
-        options={{
-          headerStyle: { backgroundColor: '#207636ff' },
-          headerTitle: ''
-        }}
-      />
-      <Stack.Screen name="RegistroUsuario" component={RegistroUsuario}
-        options={{
-          headerStyle: { backgroundColor: '#207636ff' },
-          headerTitle: ''
-        }}
-      />
-      <Stack.Screen name="Home" component={Home} 
-       options={{
-          headerStyle: { backgroundColor: '#207636ff' },
-        }}
-      />
-      <Stack.Screen name="ChatScreen" component={ChatScreen} 
-       options={{
-          headerStyle: { backgroundColor: '#207636ff' },
-        }}
-      />
-      </Stack.Navigator>
-      
-  );
-}
+    function MyStack() {
+        return (
+            <Stack.Navigator screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="Login" component={Login} />
+                <Stack.Screen name="RegistroUsuario" component={RegistroUsuario} />
+                <Stack.Screen name="Home" component={Home} />
+                <Stack.Screen name="ChatScreen" component={ChatScreen} />
+            </Stack.Navigator>
+        );
+    }
   return (
     
     <AuthProvider>
