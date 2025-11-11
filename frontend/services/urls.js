@@ -1,16 +1,7 @@
 import { Platform } from 'react-native';
 
-const PORT = 8080;
+// Ya no necesitas Platform.select
+export const HTTP_BASE_URL = "https://wheelsuis.onrender.com";
+export const WS_URL = "wss://wheelsuis.onrender.com/chats";
 
-// Host según la plataforma
-const HOST = Platform.select({
-    web: 'localhost',
-    android: '10.0.2.2',
-    ios: 'localhost',
-    default: 'localhost',
-});
-
-
-export const HTTP_BASE_URL = `http://${HOST}:${PORT}`;
-export const WS_URL = `ws://${HOST}:${PORT}/chats`;
-
+console.log("🌍 Conectando al backend en Render:", HTTP_BASE_URL);
