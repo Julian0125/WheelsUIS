@@ -6,6 +6,9 @@ export default function Login({navigation}){
     const [correo, setCorreo] = useState('')
     const [contraseña, setContraseña] = useState('')
     const [loading, setLoading] = useState(false)
+    const [mensaje, setMensaje] = useState('');
+    const [colorMensaje, setColorMensaje] = useState('red');
+
 
     const handleGoRegister = () => {
         console.log('Pressed: go to RegistroUsuario')
@@ -14,29 +17,54 @@ export default function Login({navigation}){
 
     const handleLogin = async () => {
         if (!correo || !contraseña) {
-            Alert.alert('Error', 'Por favor ingresa correo y contraseña')
-            return
+            setMensaje('Por favor ingresa correo y contraseña');
+            setColorMensaje('red');
+            return;
         }
-        
-        setLoading(true)
+
+        setLoading(true);
+        setMensaje('');
         try {
-            const result = await UsuarioService.login(correo, contraseña)
-            setLoading(false)
-            
+            const result = await UsuarioService.login(correo, contraseña);
+            setLoading(false);
+
             if (result.success) {
-                console.log('Login exitoso:', result.data)
-                navigation.navigate('Home')
+                console.log('✅ Login exitoso:', result.data);
+                setColorMensaje('green');
+                setMensaje('Inicio de sesión exitoso');
+                setTimeout(() => {
+                    setMensaje('');
+                    navigation.navigate('Home');
+                }, 1200);
             } else {
-                Alert.alert('Error', result.error || 'Error al iniciar sesión')
+                if (result.error.includes("Contraseña incorrecta")) {
+                    setColorMensaje('red');
+                    setMensaje('La contraseña ingresada es incorrecta.');
+                } else if (result.error.includes("correo no está registrado")) {
+                    setColorMensaje('red');
+                    setMensaje('El correo ingresado no existe.');
+                } else if (result.error.includes("en revisión")) {
+                    setColorMensaje('#ffcc00');
+                    setMensaje('Tu cuenta está en revisión. Espera la aprobación del administrador.');
+                } else if (result.error.includes("rechazado")) {
+                    setColorMensaje('red');
+                    setMensaje('Tu cuenta fue rechazada. No puedes iniciar sesión.');
+                } else {
+                    setColorMensaje('red');
+                    setMensaje(result.error || 'Error al iniciar sesión.');
+                }
             }
         } catch (error) {
-            setLoading(false)
-            Alert.alert('Error', 'Error al conectar con el servidor')
-            console.error(error)
+            setLoading(false);
+            setColorMensaje('red');
+            setMensaje('No se pudo conectar con el servidor.');
+            console.error(error);
         }
     };
 
-        return (
+
+
+    return (
         <View style={styles.padre}>
             <View>
                 <Image source={require('../assets/wheelsuis.png')} style={styles.profile} />
@@ -77,6 +105,12 @@ export default function Login({navigation}){
                         )}
                     </TouchableOpacity>
                 </View>
+
+                {mensaje !== '' && (
+                    <View style={[styles.mensajeBox, { backgroundColor: colorMensaje === '#ffcc00' ? '#fff8e1' : '#ffe6e6', borderColor: colorMensaje }]}>
+                        <Text style={[styles.mensajeTexto, { color: colorMensaje }]}>{mensaje}</Text>
+                    </View>
+                )}
 
                 <View style={styles.registroContainer}>
                     <Text style={styles.textoRegistro}>¿No tienes una cuenta?</Text>
@@ -169,5 +203,19 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: 'bold',
         textDecorationLine: 'underline'
-    }                                    
+    },
+    mensajeBox: {
+        marginTop: 15,
+        borderWidth: 1,
+        borderRadius: 10,
+        padding: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '100%',
+    },
+    mensajeTexto: {
+        fontSize: 14,
+        fontWeight: '500',
+        textAlign: 'center',
+    }
 })

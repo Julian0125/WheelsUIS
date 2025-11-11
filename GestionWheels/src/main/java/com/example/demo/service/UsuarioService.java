@@ -100,25 +100,31 @@ public class UsuarioService  {
 
 	   
 	}
-	
+
 
 	public Usuario ingresar(String correo, String contraseña) {
-	    // Buscar usuario por correo
-	    Usuario usuario = usuarioRepository.findByCorreo(correo)
-	            .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+		Usuario usuario = usuarioRepository.findByCorreo(correo)
+				.orElseThrow(() -> new IllegalArgumentException("Correo incorrecto o no registrado"));
 
-	    // Verificar estado
-	    if (usuario.getEstado() != Estado.ACEPTADO) {
-	        throw new IllegalArgumentException("El usuario no está aceptado");
-	    }
+		// Verificar contraseña
+		if (!usuario.getContraseña().equals(contraseña)) {
+			throw new IllegalArgumentException("Contraseña incorrecta");
+		}
 
-	    // Verificar contraseña (simple, sin cifrado)
-	    if (!usuario.getContraseña().equals(contraseña)) {
-	        throw new IllegalArgumentException("Contraseña incorrecta");
-	    }
+		// Verificar estado del usuario
+		switch (usuario.getEstado()) {
+			case ACEPTADO:
+				return usuario;
 
-	    // Si todo está bien, devolver usuario
-	    return usuario;
+			case REVISION:
+				throw new IllegalArgumentException("Tu cuenta está en revisión. Espera la aprobación.");
+
+			case RECHAZADO:
+				throw new IllegalArgumentException("Tu cuenta ha sido rechazada. No puedes iniciar sesión.");
+
+			default:
+				throw new IllegalArgumentException("Estado de usuario no válido.");
+		}
 	}
 
 	
