@@ -1,19 +1,9 @@
 import axios from "axios";
-import { Platform } from "react-native";
-
-// Configuración de URLs según plataforma
-const DEV_IP = '10.0.2.2'; // Para emulador Android
-// Si usas dispositivo físico, cambia a tu IP local (ej: '192.168.1.100')
-
-const BASE_URL = Platform.select({
-    ios: 'http://localhost:8080',
-    android: `http://${DEV_IP}:8080`,
-    default: 'http://localhost:8080',
-});
+import { HTTP_BASE_URL } from "./urls";
 
 // Crear instancia de axios
 const http = axios.create({
-    baseURL: BASE_URL,
+    baseURL: HTTP_BASE_URL,
     timeout: 15000,
     headers: {
         'Content-Type': 'application/json',
@@ -48,7 +38,7 @@ http.interceptors.response.use(
             console.error("📄 Error Data:", error.response.data);
         } else if (error.request) {
             console.error("🔌 No Response - Verifica la conexión al servidor");
-            console.error("Server URL:", BASE_URL);
+            console.error("Server URL:", HTTP_BASE_URL);
         } else {
             console.error("❌ Error:", error.message);
         }
@@ -227,12 +217,12 @@ const UsuarioService = {
             const response = await http.get('/usuario/listarUsuario');
             return { 
                 conectado: true, 
-                url: BASE_URL 
+                url: HTTP_BASE_URL 
             };
         } catch (error) {
             return { 
                 conectado: false, 
-                url: BASE_URL,
+                url: HTTP_BASE_URL,
                 error: error.message 
             };
         }
@@ -240,4 +230,4 @@ const UsuarioService = {
 };
 
 export default UsuarioService;
-export { BASE_URL };
+export { HTTP_BASE_URL};
