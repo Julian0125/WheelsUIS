@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: gestionwheels
+    env: java
+    buildCommand: ./gradlew build
+    startCommand: java -jar build/libs/*.jar
+    plan: free
