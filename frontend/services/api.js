@@ -4,7 +4,7 @@ import { HTTP_BASE_URL } from "./urls";
 // Crear instancia de axios
 const http = axios.create({
     baseURL: HTTP_BASE_URL,
-    timeout: 15000,
+    timeout: 40000,
     headers: {
         'Content-Type': 'application/json',
     }
