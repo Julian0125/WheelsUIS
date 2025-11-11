@@ -37,7 +37,8 @@ export default function Login({ navigation }) {
                 setMensaje('Inicio de sesión exitoso')
                 setTimeout(() => {
                     setMensaje('')
-                    navigation.navigate('Home')
+                    navigation.navigate('HomeTabs')
+
                 }, 1200)
             } else {
                 if (result.error.includes("Contraseña incorrecta")) {
