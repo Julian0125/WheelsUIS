@@ -1,8 +1,11 @@
 import React, { useState } from 'react'
 import { Text, StyleSheet, View, TextInput, Image, TouchableOpacity, Alert, ActivityIndicator } from 'react-native'
 import UsuarioService from '../services/api'
+import { useAuth } from '../context/AuthContext'
 
 export default function Login({navigation}){
+    const { login } = useAuth()
+
     const [correo, setCorreo] = useState('')
     const [contraseña, setContraseña] = useState('')
     const [loading, setLoading] = useState(false)
@@ -30,6 +33,7 @@ export default function Login({navigation}){
 
             if (result.success) {
                 console.log('✅ Login exitoso:', result.data);
+                await login(result.usuario);
                 setColorMensaje('green');
                 setMensaje('Inicio de sesión exitoso');
                 setTimeout(() => {
@@ -170,6 +174,7 @@ const styles = StyleSheet.create({
     cajaBoton:{
         backgroundColor:'#207636ff',
         paddingVertical:20,
+  
         borderRadius:30,
         width:150,
         marginTop:20,
