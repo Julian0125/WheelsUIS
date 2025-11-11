@@ -13,6 +13,8 @@ import Login from './pages/Login';
 import Home from './pages/Home';
 import RegistroUsuario from './pages/RegistroUsuario';
 import ChatScreen from './pages/chat';
+import CrearViaje from './pages/CrearViaje';
+
 
 const linking = {
     prefixes: ['http://localhost:8081', 'https://localhost:8081'],
@@ -81,6 +83,7 @@ function MyStack() {
             <Stack.Screen name="RegistroUsuario" component={RegistroUsuario} />
             <Stack.Screen name="HomeTabs" component={HomeTabs} />
             <Stack.Screen name="ChatScreen" component={ChatScreen} />
+            <Stack.Screen name="CrearViaje" component={CrearViaje} />
         </Stack.Navigator>
     );
 }
