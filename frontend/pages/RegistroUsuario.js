@@ -1,10 +1,9 @@
 import React, { useState } from 'react'
-import { Text, StyleSheet, View, TextInput, TouchableOpacity, Alert, ActivityIndicator , Platform} from 'react-native'
-import { Picker } from '@react-native-picker/picker'
+import { Text, StyleSheet, View, TextInput, TouchableOpacity, Alert, ActivityIndicator, Platform } from 'react-native'
 import { ScrollView } from 'react-native';
 import UsuarioService from '../services/api';
 
-export default function RegistroUsuario({ navigation }){
+export default function RegistroUsuario({ navigation }) {
     const [nombre, setNombre] = useState('');
     const [codigo, setCodigo] = useState('');
     const [celular, setCelular] = useState('');
@@ -19,6 +18,9 @@ export default function RegistroUsuario({ navigation }){
     };
 
     const handleRegistro = async () => {
+        // Prevenir múltiples envíos
+        if (loading) return;
+
         // Validaciones
         if (!nombre || !codigo || !celular || !correo || !contraseña || !tipoUsuario) {
             Alert.alert('Error', 'Todos los campos son obligatorios');
@@ -47,106 +49,127 @@ export default function RegistroUsuario({ navigation }){
             };
 
             const result = await UsuarioService.registrar(usuario);
-            setLoading(false);
 
+            // ✅ CORRECCIÓN: Verificar success ANTES de cambiar loading
             if (result.success) {
                 if (Platform.OS === 'web') {
-            
-            window.alert('Usuario registrado correctamente. Por favor verifica tu correo para activar tu cuenta.');
-            navigation.replace('Login');
+                    window.alert('Usuario registrado correctamente. Por favor verifica tu correo para activar tu cuenta.');
+                    navigation.replace('Login');
+                } else {
+                    Alert.alert(
+                        'Éxito',
+                        'Usuario registrado correctamente. Por favor verifica tu correo para activar tu cuenta.',
+                        [{ text: 'OK', onPress: () => navigation.replace('Login') }]
+                    );
+                }
             } else {
-            Alert.alert(
-                'Éxito',
-                'Usuario registrado correctamente. Por favor verifica tu correo para activar tu cuenta.',
-                [{ text: 'OK', onPress: () => navigation.replace('Login') }]
-            );
+                // Solo desactivar loading si hay error
+                setLoading(false);
+                Alert.alert('Error', result.error || 'Error al registrar usuario');
             }
-        } else {
-            Alert.alert('Error', result.error || 'Error al registrar usuario');
-        }
         } catch (error) {
-        Alert.alert('Error', 'Error al conectar con el servidor');
-        console.error(error);
-        } finally {
-        setLoading(false);
+            setLoading(false);
+            Alert.alert('Error', 'Error al conectar con el servidor');
+            console.error(error);
         }
     };
 
-    return(
+    return (
         <ScrollView contentContainerStyle={styles.padre}>
-            <View style ={styles.tarjeta}>
+            <View style={styles.tarjeta}>
                 <View style={styles.cajaTexto}>
-                    <TextInput placeholder="Nombre" style={styles.input} value={nombre} onChangeText={setNombre} 
+                    <TextInput 
+                        placeholder="Nombre" 
+                        style={styles.input} 
+                        value={nombre} 
+                        onChangeText={setNombre}
+                        editable={!loading}
                     />
                 </View>
-            
+
                 <View style={styles.cajaTexto}>
-                     <TextInput 
-                        placeholder="Código" 
+                    <TextInput
+                        placeholder="Código"
                         style={styles.input}
                         value={codigo}
                         onChangeText={setCodigo}
                         keyboardType="numeric"
-                     />
+                        editable={!loading}
+                    />
                 </View>
 
                 <View style={styles.cajaTexto}>
-                     <TextInput 
-                        placeholder="Celular" 
+                    <TextInput
+                        placeholder="Celular"
                         style={styles.input}
                         value={celular}
                         onChangeText={setCelular}
-                        keyboardType="numeric" 
-                     />
+                        keyboardType="numeric"
+                        editable={!loading}
+                    />
                 </View>
 
                 <View style={styles.cajaTexto}>
-                     <TextInput 
-                        placeholder="@correo.uis.edu.co" 
+                    <TextInput
+                        placeholder="@correo.uis.edu.co"
                         style={styles.input}
                         value={correo}
                         onChangeText={setCorreo}
-                        keyboardType="email-address" 
-                        autoCapitalize="none" 
-                     />
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        editable={!loading}
+                    />
                 </View>
 
                 <View style={styles.cajaTexto}>
-                     <TextInput 
-                        placeholder="Contraseña" 
+                    <TextInput
+                        placeholder="Contraseña"
                         style={styles.input}
                         value={contraseña}
                         onChangeText={setContraseña}
                         secureTextEntry
-                     />
+                        editable={!loading}
+                    />
                 </View>
 
-<View style={styles.cajaTexto}>
-    <Text style={{ color: '#666', marginBottom: 10 }}>Tipo de usuario:</Text>
-    <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
-        <TouchableOpacity 
-            style={[styles.tipoButton, tipoUsuario === 'CONDUCTOR' && styles.tipoButtonActive]}
-            onPress={() => setTipoUsuario('CONDUCTOR')}
-        >
-            <Text style={styles.tipoButtonText}>Conductor</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-            style={[styles.tipoButton, tipoUsuario === 'PASAJERO' && styles.tipoButtonActive]}
-            onPress={() => setTipoUsuario('PASAJERO')}
-        >
-            <Text style={styles.tipoButtonText}>Pasajero</Text>
-        </TouchableOpacity>
-    </View>
-</View>
+                <View style={styles.cajaTexto}>
+                    <Text style={{ color: '#666', marginBottom: 10 }}>Tipo de usuario:</Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
+                        <TouchableOpacity
+                            style={[styles.tipoButton, tipoUsuario === 'CONDUCTOR' && styles.tipoButtonActive]}
+                            onPress={() => setTipoUsuario('CONDUCTOR')}
+                            disabled={loading}
+                        >
+                            <Text style={[
+                                styles.tipoButtonText,
+                                tipoUsuario === 'CONDUCTOR' && styles.tipoButtonTextActive
+                            ]}>
+                                Conductor
+                            </Text>
+                        </TouchableOpacity>
 
+                        <TouchableOpacity
+                            style={[styles.tipoButton, tipoUsuario === 'PASAJERO' && styles.tipoButtonActive]}
+                            onPress={() => setTipoUsuario('PASAJERO')}
+                            disabled={loading}
+                        >
+                            <Text style={[
+                                styles.tipoButtonText,
+                                tipoUsuario === 'PASAJERO' && styles.tipoButtonTextActive
+                            ]}>
+                                Pasajero
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
 
                 <View style={styles.PadreBoton}>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={[styles.cajaBoton, loading && styles.botonDeshabilitado]}
                         onPress={handleRegistro}
                         disabled={loading}
-                    > 
+                        activeOpacity={loading ? 1 : 0.7}
+                    >
                         {loading ? (
                             <ActivityIndicator color="white" />
                         ) : (
@@ -157,67 +180,71 @@ export default function RegistroUsuario({ navigation }){
 
                 <View style={styles.loginContainer}>
                     <Text style={styles.textoLogin}>¿Ya tienes cuenta? </Text>
-                    <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                    <TouchableOpacity 
+                        onPress={() => navigation.navigate('Login')}
+                        disabled={loading}
+                    >
                         <Text style={styles.linkLogin}>Inicia sesión aquí</Text>
                     </TouchableOpacity>
                 </View>
-            </View >
+            </View>
         </ScrollView>
     )
-
-
 }
 
 const styles = StyleSheet.create({
-    padre:{
-        flex:1,
-        justifyContent:'center',
-        alignItems:'center',
-        backgroundColor:'white'
+    padre: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'white'
     },
-     titulo: {
+    titulo: {
         fontSize: 24,
         fontWeight: 'bold',
         color: '#207636ff',
         textAlign: 'center',
         marginBottom: 20
     },
-     tarjeta:{
-        margin:29,
-        backgroundColor:'#f0f0f0',
-        borderRadius:20,
-        width:350,
-        padding:20,
-        shadowColor:'#000',
-        shadowOffset:{
-            width:0,
-            height:2
+    tarjeta: {
+        margin: 29,
+        backgroundColor: '#f0f0f0',
+        borderRadius: 20,
+        width: 350,
+        padding: 20,
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2
         },
-        shadowOpacity:0.25,
-        shadowRadius:4,
-        elevation:5
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 5
     },
-    cajaTexto:{
-        paddingVertical:12,
-        paddingHorizontal:16,
-        backgroundColor:'#cccccc40',
-        borderRadius:30,
-        marginVertical:10,
-        overflow:'hidden',
-    } ,
-    PadreBoton:{
-        alignItems:'center',
+    cajaTexto: {
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        backgroundColor: '#cccccc40',
+        borderRadius: 30,
+        marginVertical: 10,
+        overflow: 'hidden',
     },
-    cajaBoton:{
-        backgroundColor:'#207636ff',
-        paddingVertical:20,
-        borderRadius:30,
-        width:150,
-        marginTop:20,
+    PadreBoton: {
+        alignItems: 'center',
     },
-    TextBoton:{
-        color:'white',
-        textAlign:'center',
+    cajaBoton: {
+        backgroundColor: '#207636ff',
+        paddingVertical: 20,
+        borderRadius: 30,
+        width: 150,
+        marginTop: 20,
+    },
+    botonDeshabilitado: {
+        opacity: 0.6,
+    },
+    TextBoton: {
+        color: 'white',
+        textAlign: 'center',
     },
     input: {
         width: '100%',
@@ -229,11 +256,11 @@ const styles = StyleSheet.create({
         height: 40,
         color: '#000'
     },
-     textoLogin: {
+    textoLogin: {
         color: '#666',
         fontSize: 14
     },
-     loginContainer: {
+    loginContainer: {
         flexDirection: 'row',
         justifyContent: 'center',
         marginTop: 20,
@@ -246,18 +273,21 @@ const styles = StyleSheet.create({
         textDecorationLine: 'underline'
     },
     tipoButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    backgroundColor: '#e0e0e0',
-    minWidth: 120,
-    alignItems: 'center'
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderRadius: 20,
+        backgroundColor: '#e0e0e0',
+        minWidth: 120,
+        alignItems: 'center'
     },
     tipoButtonActive: {
-    backgroundColor: '#207636ff',
+        backgroundColor: '#207636ff',
     },
     tipoButtonText: {
-    color: '#000',
-    fontWeight: '500'
-    }               
+        color: '#000',
+        fontWeight: '500'
+    },
+    tipoButtonTextActive: {
+        color: '#fff',
+    }
 })
