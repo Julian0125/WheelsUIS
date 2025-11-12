@@ -8,6 +8,7 @@ export default function Home({ navigation }) {
           <View style={styles.statusBadge}>
             <Text style={styles.statusText}>Lugares disponibles</Text>
           </View>
+          
         </View>
 
         <Text style={styles.title}>¿Qué deseas hacer?</Text>
