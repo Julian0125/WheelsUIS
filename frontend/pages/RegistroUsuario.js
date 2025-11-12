@@ -50,7 +50,7 @@ export default function RegistroUsuario({ navigation }) {
 
             const result = await UsuarioService.registrar(usuario);
 
-            // ✅ CORRECCIÓN: Verificar success ANTES de cambiar loading
+            // 
             if (result.success) {
                 if (Platform.OS === 'web') {
                     window.alert('Usuario registrado correctamente. Por favor verifica tu correo para activar tu cuenta.');
