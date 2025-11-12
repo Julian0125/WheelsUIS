@@ -1,20 +1,20 @@
+
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View, ActivityIndicator } from 'react-native';
 import 'react-native-gesture-handler';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 
-
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 import Login from './pages/Login';
-import Home from './pages/Home';
+import HomePasajero from './pages/HomePasajero';
+import HomeConductor from './pages/HomeConductor';
 import RegistroUsuario from './pages/RegistroUsuario';
 import ChatScreen from './pages/chat';
 import CrearViaje from './pages/CrearViaje';
-
 
 const linking = {
     prefixes: ['http://localhost:8081', 'https://localhost:8081'],
@@ -31,16 +31,44 @@ const linking = {
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Pantallas vacías temporales
-function HistorialScreen() {
-    return null;
+
+function HistorialConductorScreen() {
+    return null; 
 }
 
-function PerfilScreen() {
-    return null;
+function PerfilConductorScreen() {
+    return null; 
 }
 
-// Barra inferior (Tabs)
+function MisViajesScreen() {
+    return null; 
+}
+
+function HistorialPasajeroScreen() {
+    return null; 
+}
+
+function PerfilPasajeroScreen() {
+    return null; 
+}
+
+function MisReservasScreen() {
+    return null; 
+}
+
+function BuscarViajesScreen() {
+    return null; 
+}
+
+function RegistrarVehiculoScreen() {
+    return null; 
+}
+
+function MisVehiculosScreen() {
+    return null; 
+}
+
+
 function ConductorTabs() {
     return (
         <Tab.Navigator
@@ -87,7 +115,7 @@ function ConductorTabs() {
         >
             <Tab.Screen 
                 name="Inicio" 
-                component={Home}
+                component={HomeConductor}
                 options={{ tabBarLabel: 'Inicio' }}
             />
             <Tab.Screen 
@@ -156,18 +184,13 @@ function PasajeroTabs() {
         >
             <Tab.Screen 
                 name="Inicio" 
-                component={Home}
+                component={HomePasajero}
                 options={{ tabBarLabel: 'Inicio' }}
             />
             <Tab.Screen 
-                name="MisReservas" 
-                component={MisReservasScreen}
-                options={{ tabBarLabel: 'Reservas' }}
-            />
-            <Tab.Screen 
-                name="Historial" 
+                name="Historial Viajes" 
                 component={HistorialPasajeroScreen}
-                options={{ tabBarLabel: 'Historial' }}
+                options={{ tabBarLabel: 'Historial Viajes' }}
             />
             <Tab.Screen 
                 name="Perfil" 
@@ -177,6 +200,7 @@ function PasajeroTabs() {
         </Tab.Navigator>
     );
 }
+
 
 function AppNavigator() {
     const { usuario, loading } = useAuth();
@@ -192,25 +216,24 @@ function AppNavigator() {
     return (
         <Stack.Navigator screenOptions={{ headerShown: false }}>
             {!usuario ? (
-                // ========== RUTAS SIN AUTENTICACIÓN ==========
+                
                 <>
                     <Stack.Screen name="Login" component={Login} />
                     <Stack.Screen name="RegistroUsuario" component={RegistroUsuario} />
                 </>
             ) : (
-                // ========== RUTAS AUTENTICADAS SEGÚN ROL ==========
+                //segun rol
                 <>
-                    {usuario.tipoUsuario === 'CONDUCTOR' ? (
-                        // ========== RUTAS PARA CONDUCTOR ==========
+                    {usuario.tipo === 'CONDUCTOR' || usuario.tipoUsuario === 'CONDUCTOR' ? (
+                        
                         <>
-                            {/* Tabs principales */}
-                            <Stack.Screen 
+                             <Stack.Screen 
                                 name="HomeConductor" 
                                 component={ConductorTabs}
                                 options={{ gestureEnabled: false }}
                             />
                             
-                            {/* Pantallas modales/completas accesibles desde botones */}
+                            
                             <Stack.Screen 
                                 name="CrearViaje" 
                                 component={CrearViaje}
@@ -241,16 +264,16 @@ function AppNavigator() {
                             />
                         </>
                     ) : (
-                        // ========== RUTAS PARA PASAJERO ==========
+                       
                         <>
-                            {/* Tabs principales */}
+                            
                             <Stack.Screen 
                                 name="HomePasajero" 
                                 component={PasajeroTabs}
                                 options={{ gestureEnabled: false }}
                             />
                             
-                            {/* Pantallas modales/completas accesibles desde botones */}
+                            
                             <Stack.Screen 
                                 name="BuscarViajes" 
                                 component={BuscarViajesScreen}
@@ -258,14 +281,6 @@ function AppNavigator() {
                                     presentation: 'card',
                                     headerShown: true,
                                     headerTitle: 'Buscar Viajes',
-                                }}
-                            />
-                            <Stack.Screen 
-                                name="ChatScreen" 
-                                component={ChatScreen}
-                                options={{
-                                    headerShown: true,
-                                    headerTitle: 'Chat',
                                 }}
                             />
                         </>
@@ -277,23 +292,12 @@ function AppNavigator() {
 }
 
 
-function MyStack() {
-    return (
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="Login" component={Login} />
-            <Stack.Screen name="RegistroUsuario" component={RegistroUsuario} />
-            <Stack.Screen name="HomeTabs" component={HomeTabs} />
-            <Stack.Screen name="ChatScreen" component={ChatScreen} />
-            <Stack.Screen name="CrearViaje" component={CrearViaje} />
-        </Stack.Navigator>
-    );
-}
-
 export default function App() {
     return (
         <AuthProvider>
             <NavigationContainer linking={linking}>
-                <MyStack />
+                <AppNavigator />
+                <StatusBar style="auto" />
             </NavigationContainer>
         </AuthProvider>
     );

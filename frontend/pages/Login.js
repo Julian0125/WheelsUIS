@@ -37,7 +37,7 @@ export default function Login({ navigation }) {
                 setMensaje('Inicio de sesión exitoso')
                 setTimeout(() => {
                     setMensaje('')
-                    navigation.navigate('HomeTabs')
+                    
 
                 }, 1200)
             } else {
