@@ -27,9 +27,14 @@ export default function Home({ navigation }) {
 
           <View style={styles.buttonSection}>
             <Text style={styles.helperText}>Si quieres facilitar ir a algún lugar</Text>
-            <TouchableOpacity style={[styles.optionButton, styles.crearButton]}>
-              <Text style={styles.optionText}>CREAR</Text>
+            <TouchableOpacity
+                style={[styles.optionButton, styles.crearButton]}
+                onPress={() => navigation.navigate('CrearViaje')}
+                activeOpacity={0.8}
+            >
+                <Text style={styles.optionText}>CREAR</Text>
             </TouchableOpacity>
+
           </View>
         </View>
 
