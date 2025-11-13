@@ -3,6 +3,7 @@ package com.example.demo.rest;
 import java.util.List;
 import java.util.Map;
 
+import com.example.demo.DTO.RutasPredefinidas;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -109,6 +110,13 @@ public class ViajeRest {
 	            return ResponseEntity.badRequest().body(e.getMessage());
 	        }
 	    }
+
+	@GetMapping("/rutas-predefinidas")
+	public ResponseEntity<List<RutasPredefinidas>> listarRutasPorConductor(
+			@RequestParam int idConductor) {
+		List<RutasPredefinidas> rutas = viajeService.listarRutasPredefinidasPorConductor(idConductor);
+		return ResponseEntity.ok(rutas);
+	}
 
 	
 }
