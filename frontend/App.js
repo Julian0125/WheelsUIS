@@ -96,11 +96,8 @@ function ConductorTabs() {
                         case 'Inicio':
                             iconName = focused ? 'home' : 'home-outline';
                             break;
-                        case 'MisViajes':
+                        case 'Historial Viajes':
                             iconName = focused ? 'car' : 'car-outline';
-                            break;
-                        case 'Historial':
-                            iconName = focused ? 'time' : 'time-outline';
                             break;
                         case 'Perfil':
                             iconName = focused ? 'person' : 'person-outline';
@@ -119,14 +116,9 @@ function ConductorTabs() {
                 options={{ tabBarLabel: 'Inicio' }}
             />
             <Tab.Screen 
-                name="MisViajes" 
-                component={MisViajesScreen}
-                options={{ tabBarLabel: 'Mis Viajes' }}
-            />
-            <Tab.Screen 
-                name="Historial" 
+                name="Historial Viajes" 
                 component={HistorialConductorScreen}
-                options={{ tabBarLabel: 'Historial' }}
+                options={{ tabBarLabel: 'Historial Viajes' }}
             />
             <Tab.Screen 
                 name="Perfil" 
@@ -165,10 +157,7 @@ function PasajeroTabs() {
                         case 'Inicio':
                             iconName = focused ? 'home' : 'home-outline';
                             break;
-                        case 'MisReservas':
-                            iconName = focused ? 'bookmark' : 'bookmark-outline';
-                            break;
-                        case 'Historial':
+                        case 'Historial Viajes':
                             iconName = focused ? 'time' : 'time-outline';
                             break;
                         case 'Perfil':

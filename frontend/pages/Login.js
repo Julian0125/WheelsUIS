@@ -31,7 +31,7 @@ export default function Login({ navigation }) {
             setLoading(false)
 
             if (result.success) {
-                console.log('✅ Login exitoso:', result.data)
+                console.log('Login exitoso:', result.data)
                 await login(result.usuario)
                 setColorMensaje('green')
                 setMensaje('Inicio de sesión exitoso')

@@ -1,18 +1,20 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { useAuth } from '../context/AuthContext';
 
-export default function Home({ navigation }) {
-  return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <View style={styles.statusBadge}>
-            <Text style={styles.statusText}>Lugares disponibles</Text>
-          </View>
-        
+export default function HomePasajero({ navigation }) {
+    const { usuario } = useAuth();
+    const nombre = usuario?.nombre || 'Usuario';
+    return (
+       <View style={styles.container}>
+      <View style={styles.header}>
+        <View style={styles.statusBadge}>
+          <Text style={styles.statusText}>Hola, {nombre} 👋</Text>
         </View>
+      </View>
 
-        <Text style={styles.title}>¿Qué deseas hacer?</Text>
-        <Text style={styles.subtitle}>Busca o crea tu cupo en Wheels hoy</Text>
+        <Text style={styles.title}>¿Preparado para tu próximo viaje?</Text>
+        <Text style={styles.subtitle}>Encuentra viajes disponibles cerca de ti</Text>
 
         <View style={styles.buttonsContainer}>
           <View style={styles.buttonSection}>
@@ -39,7 +41,7 @@ const styles = StyleSheet.create({
   },
   header: {
     width: '100%',
-    marginTop: 40,
+    marginTop: 50,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -51,7 +53,8 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   statusText: {
-    fontSize: 12,
+    fontSize: 20,
+    fontWeight: 'bold',
     color: '#555',
   },
   profileImage: {
@@ -62,20 +65,20 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: 'bold',
-    marginTop: 50,
+    marginTop: 60,
     textAlign: 'center',
-    color: '#1C5D2F',
+    color: '#062f13ff',
   },
   subtitle: {
     fontSize: 14,
     color: '#555',
     textAlign: 'center',
-    marginTop: 5,
+    marginTop: 6,
   },
   buttonsContainer: {
     flexDirection: 'row',
-    marginTop: 40,
-    justifyContent: 'space-between',
+    marginTop: 130,
+    justifyContent: 'center',
     width: '100%',
   },
   buttonSection: {
@@ -101,8 +104,8 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   buscarButton: {
-    backgroundColor: '#1c3a1a', // verde medio
-},
+    backgroundColor: '#2e5b32ff', //
+  },
   optionText: {
     color: '#FFF',
     fontSize: 18,
@@ -110,7 +113,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   helpButton: {
-    backgroundColor: '#1B5E20',
+    backgroundColor: '#2e5b32ff',
     borderRadius: 30,
     paddingVertical: 10,
     paddingHorizontal: 30,
