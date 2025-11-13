@@ -7,6 +7,11 @@ export default function Home({ navigation }) {
   const nombre = usuario?.nombre || 'Usuario';
   return (
       <View style={styles.container}>
+        <Image
+            source={require('../assets/carro.png')}
+            style={styles.carBackground}
+            resizeMode="contain"  
+        />
         <View style={styles.header}>
           <View style={styles.statusBadge}>
             <Text style={styles.statusText}>Hola, {nombre} 👋</Text>
@@ -43,6 +48,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     padding: 20,
     alignItems: 'center',
+  },
+  carBackground: {
+    position: 'absolute',
+    bottom: 0,
+    width: '150%',
+    height: 320,       
+    opacity: 0.9,      
   },
   header: {
     width: '100%',

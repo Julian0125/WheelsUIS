@@ -3,32 +3,39 @@ import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 
 export default function HomePasajero({ navigation }) {
-    const { usuario } = useAuth();
-    const nombre = usuario?.nombre || 'Usuario';
-    return (
-       <View style={styles.container}>
+  const { usuario } = useAuth();
+  const nombre = usuario?.nombre || 'Usuario';
+
+  return (
+    <View style={styles.container}>
+      <Image
+        source={require('../assets/carro.png')}
+        style={styles.carBackground}
+        resizeMode="contain"  
+      />
+
       <View style={styles.header}>
         <View style={styles.statusBadge}>
           <Text style={styles.statusText}>Hola, {nombre} 👋</Text>
         </View>
       </View>
 
-        <Text style={styles.title}>¿Preparado para tu próximo viaje?</Text>
-        <Text style={styles.subtitle}>Encuentra viajes disponibles cerca de ti</Text>
+      <Text style={styles.title}>¿Preparado para tu próximo viaje?</Text>
+      <Text style={styles.subtitle}>Encuentra viajes disponibles cerca de ti</Text>
 
-        <View style={styles.buttonsContainer}>
-          <View style={styles.buttonSection}>
-            <Text style={styles.helperText}>Si buscas ir con otras personas</Text>
-            <TouchableOpacity style={[styles.optionButton, styles.buscarButton]}>
-              <Text style={styles.optionText}>BUSCAR</Text>
-            </TouchableOpacity>
-          </View>
+      <View style={styles.buttonsContainer}>
+        <View style={styles.buttonSection}>
+          <Text style={styles.helperText}>Si buscas ir con otras personas</Text>
+          <TouchableOpacity style={[styles.optionButton, styles.buscarButton]}>
+            <Text style={styles.optionText}>BUSCAR</Text>
+          </TouchableOpacity>
         </View>
-
-        <TouchableOpacity style={styles.helpButton}>
-          <Text style={styles.helpText}>Ayuda</Text>
-        </TouchableOpacity>
       </View>
+
+      <TouchableOpacity style={styles.helpButton}>
+        <Text style={styles.helpText}>Ayuda</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -39,6 +46,16 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: 'center',
   },
+
+  // carro
+  carBackground: {
+    position: 'absolute',
+    bottom: 0,
+    width: '150%',
+    height: 320,       
+    opacity: 0.9,      
+  },
+
   header: {
     width: '100%',
     marginTop: 50,
@@ -56,11 +73,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#555',
-  },
-  profileImage: {
-    width: 35,
-    height: 35,
-    borderRadius: 20,
   },
   title: {
     fontSize: 22,
@@ -104,7 +116,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   buscarButton: {
-    backgroundColor: '#2e5b32ff', //
+    backgroundColor: '#2e5b32ff',
   },
   optionText: {
     color: '#FFF',
