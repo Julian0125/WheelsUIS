@@ -24,7 +24,10 @@ public class ViajeDirector {
     }
 
 
-    // 🔹 Viaje desde la U al barrio Mutis
+// ================================
+    // 🔹 VIAJES DESDE LA UNIVERSIDAD
+    // ================================
+
     public Viaje construirViajeUMutis() {
         return Viaje.builder()
                 .conductor(conductor)
@@ -36,13 +39,38 @@ public class ViajeDirector {
                 .build();
     }
 
-    // 🔹 Viaje desde la U al barrio La Cumbre
     public Viaje construirViajeUCumbre() {
         return Viaje.builder()
                 .conductor(conductor)
                 .origen("Universidad")
                 .destino("Barrio La Cumbre")
                 .horaSalida(LocalDateTime.now().plusMinutes(15))
+                .cuposMaximos(obtenerCuposPorVehiculo())
+                .estadoViaje(EstadoViaje.ENCURSO)
+                .build();
+    }
+
+    // ================================
+    // 🔹 VIAJES DE REGRESO (BARRIO → UNIVERSIDAD)
+    // ================================
+
+    public Viaje construirViajeMutisU() {
+        return Viaje.builder()
+                .conductor(conductor)
+                .origen("Barrio Mutis")
+                .destino("Universidad")
+                .horaSalida(LocalDateTime.now().plusMinutes(30))
+                .cuposMaximos(obtenerCuposPorVehiculo())
+                .estadoViaje(EstadoViaje.ENCURSO)
+                .build();
+    }
+
+    public Viaje construirViajeCumbreU() {
+        return Viaje.builder()
+                .conductor(conductor)
+                .origen("Barrio La Cumbre")
+                .destino("Universidad")
+                .horaSalida(LocalDateTime.now().plusMinutes(30))
                 .cuposMaximos(obtenerCuposPorVehiculo())
                 .estadoViaje(EstadoViaje.ENCURSO)
                 .build();

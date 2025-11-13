@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import com.example.demo.DTO.RutasPredefinidas;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import org.springframework.stereotype.Service;
@@ -32,7 +33,37 @@ public class ViajeService {
 	private PasajeroRepository pasajeroRepository;
 	@Autowired
 	private NotificacionService notificacionService;
-	
+
+	public List<RutasPredefinidas> listarRutasPredefinidasPorConductor(int idConductor) {
+		// 🔹 Buscar conductor
+		Conductor conductor = conductorRepository.findById(idConductor)
+				.orElseThrow(() -> new RuntimeException("Conductor no encontrado"));
+
+		// 🔹 Crear el director para ese conductor
+		ViajeDirector director = new ViajeDirector(conductor);
+
+		// 🔹 Crear lista de viajes predefinidos usando el director
+		List<Viaje> viajes = new ArrayList<>();
+		viajes.add(director.construirViajeUMutis());
+		viajes.add(director.construirViajeUCumbre());
+		viajes.add(director.construirViajeMutisU());
+		viajes.add(director.construirViajeCumbreU());
+		// aquí puedes agregar más viajes si los defines en ViajeDirector
+
+		// 🔹 Convertir a DTO
+		List<RutasPredefinidas> rutas = new ArrayList<>();
+		for (Viaje v : viajes) {
+			rutas.add(new RutasPredefinidas(
+					v.getOrigen(),
+					v.getDestino(),
+					v.getCuposMaximos(),
+					v.getHoraSalida()
+			));
+		}
+
+		return rutas;
+	}
+
 	 public Viaje crearViajePredefinido(int idConductor, String tipo) {
 		    Conductor conductor = conductorRepository.findById((int) idConductor)
 		            .orElseThrow(() -> new RuntimeException("Conductor no encontrado"));
