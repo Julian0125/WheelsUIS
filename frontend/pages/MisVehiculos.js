@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIn
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
-import VehiculoService from '../services/VehiculoService';
+import VehiculoService from '../services/vehiculoService';
 
 export default function MisVehiculos() {
   const navigation = useNavigation();
