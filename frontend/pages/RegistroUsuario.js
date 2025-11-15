@@ -3,6 +3,8 @@ import { Text, StyleSheet, View, TextInput, TouchableOpacity, Alert, ActivityInd
 import { ScrollView } from 'react-native';
 import UsuarioService from '../services/api';
 
+
+
 export default function RegistroUsuario({ navigation }) {
     const [nombre, setNombre] = useState('');
     const [codigo, setCodigo] = useState('');
