@@ -106,7 +106,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#777',
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 14,
+  
   },
   optionButton: {
     width: '100%',
@@ -122,6 +123,7 @@ const styles = StyleSheet.create({
   },
   crearButton: {
     backgroundColor: '#207636', // su verde principal
+    
   },
   optionText: {
     color: '#FFF',
