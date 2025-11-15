@@ -26,19 +26,24 @@ export default function Login({ navigation }) {
 
         setLoading(true)
         setMensaje('')
+        console.log('Intentando login...')
+
         try {
             const result = await UsuarioService.login(correo, contraseña)
             setLoading(false)
 
             if (result.success) {
                 console.log('Login exitoso:', result.data)
-                await login(result.usuario)
+
+                // ✅ CORRECCIÓN: Asegurarse de pasar el objeto completo con vehiculo
+                const usuarioCompleto = result.data || result.usuario
+                console.log('Usuario completo a guardar:', usuarioCompleto)
+
+                await login(usuarioCompleto)
                 setColorMensaje('green')
                 setMensaje('Inicio de sesión exitoso')
                 setTimeout(() => {
                     setMensaje('')
-                    
-
                 }, 1200)
             } else {
                 if (result.error.includes("Contraseña incorrecta")) {
