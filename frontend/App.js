@@ -15,6 +15,9 @@ import HomeConductor from './pages/HomeConductor';
 import RegistroUsuario from './pages/RegistroUsuario';
 import ChatScreen from './pages/chat';
 import CrearViaje from './pages/CrearViaje';
+import Perfil from './pages/Perfil';  
+import RegistrarVehiculo from './pages/RegistrarVehiculo';  
+import MisVehiculos from './pages/MisVehiculos';
 
 const linking = {
     prefixes: ['http://localhost:8081', 'https://localhost:8081'],
@@ -24,6 +27,11 @@ const linking = {
             RegistroUsuario: 'RegistroUsuario',
             HomeConductor: 'HomeConductor',
             HomePasajero: 'HomePasajero',
+            Chat: 'chat',
+            Perfil: 'Perfil',
+            CrearViaje: 'CrearViaje',
+            RegistrarVehiculo: 'RegistrarVehiculo',
+            MisVehiculos: 'MisVehiculos',
         },
     },
 };
@@ -36,7 +44,7 @@ function HistorialConductorScreen() {
     return null; 
 }
 
-function PerfilConductorScreen() {
+function PerfilScreen() {
     return null; 
 }
 
@@ -52,17 +60,12 @@ function PerfilPasajeroScreen() {
     return null; 
 }
 
-function MisReservasScreen() {
-    return null; 
-}
 
 function BuscarViajesScreen() {
     return null; 
 }
 
-function RegistrarVehiculoScreen() {
-    return null; 
-}
+
 
 function MisVehiculosScreen() {
     return null; 
@@ -122,7 +125,7 @@ function ConductorTabs() {
             />
             <Tab.Screen 
                 name="Perfil" 
-                component={PerfilConductorScreen}
+                component={Perfil}
                 options={{ tabBarLabel: 'Perfil' }}
             />
         </Tab.Navigator>
@@ -183,7 +186,7 @@ function PasajeroTabs() {
             />
             <Tab.Screen 
                 name="Perfil" 
-                component={PerfilPasajeroScreen}
+                component={Perfil}
                 options={{ tabBarLabel: 'Perfil' }}
             />
         </Tab.Navigator>
@@ -235,16 +238,16 @@ function AppNavigator() {
                             />
                             <Stack.Screen 
                                 name="RegistrarVehiculo" 
-                                component={RegistrarVehiculoScreen}
+                                component={RegistrarVehiculo}
                                 options={{
                                     presentation: 'card',
-                                    headerShown: true,
+                                    headerShown: false,
                                     headerTitle: 'Registrar Vehículo',
                                 }}
                             />
                             <Stack.Screen 
                                 name="MisVehiculos" 
-                                component={MisVehiculosScreen}
+                                component={MisVehiculos}
                                 options={{
                                     presentation: 'card',
                                     headerShown: true,
