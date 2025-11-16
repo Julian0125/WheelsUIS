@@ -7,7 +7,7 @@ export const AuthProvider = ({ children }) => {
     const [usuario, setUsuario] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // ✅ NUEVO: Cargar usuario desde AsyncStorage al iniciar
+    // ✅ Cargar usuario desde AsyncStorage al iniciar
     useEffect(() => {
         const cargarUsuario = async () => {
             try {
@@ -18,9 +18,13 @@ export const AuthProvider = ({ children }) => {
                     const usuarioParseado = JSON.parse(usuarioGuardado);
                     setUsuario(usuarioParseado);
                     console.log('✅ Usuario restaurado:', usuarioParseado);
+                } else {
+                    console.log('ℹ️ No hay usuario guardado, mostrando Login');
                 }
             } catch (error) {
                 console.error('❌ Error al cargar usuario:', error);
+                // Si hay error, limpiar AsyncStorage para evitar problemas
+                await AsyncStorage.removeItem('usuario');
             } finally {
                 setLoading(false);
             }
@@ -29,7 +33,7 @@ export const AuthProvider = ({ children }) => {
         cargarUsuario();
     }, []);
 
-    // ✅ CORREGIDO: Ahora guarda en AsyncStorage
+    // ✅ Guardar usuario en AsyncStorage
     const login = async (usuarioData) => {
         try {
             const tipoUsuario = usuarioData.tipoUsuario || usuarioData.tipo;
@@ -47,7 +51,7 @@ export const AuthProvider = ({ children }) => {
 
             console.log('💾 Guardando usuario en AsyncStorage:', usuarioNormalizado);
 
-            // ✅ CRÍTICO: Limpiar primero y luego guardar
+            // Limpiar primero y luego guardar
             await AsyncStorage.removeItem('usuario');
             await AsyncStorage.setItem('usuario', JSON.stringify(usuarioNormalizado));
 
@@ -63,10 +67,10 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    // ✅ CORREGIDO: Ahora limpia AsyncStorage
+    // ✅ Cerrar sesión y limpiar AsyncStorage
     const logout = async () => {
         try {
-            console.log('Cerrando sesión...');
+            console.log('🚪 Cerrando sesión...');
             await AsyncStorage.removeItem('usuario');
             setUsuario(null);
             console.log('👋 Logout exitoso - AsyncStorage limpiado');
