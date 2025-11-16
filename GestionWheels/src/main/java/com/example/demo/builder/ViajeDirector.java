@@ -35,7 +35,7 @@ public class ViajeDirector {
                 .destino("Barrio Mutis")
                 .horaSalida(LocalDateTime.now().plusMinutes(15))
                 .cuposMaximos(obtenerCuposPorVehiculo())
-                .estadoViaje(EstadoViaje.ENCURSO)
+                .estadoViaje(EstadoViaje.CREADO)
                 .build();
     }
 
@@ -46,7 +46,7 @@ public class ViajeDirector {
                 .destino("Barrio La Cumbre")
                 .horaSalida(LocalDateTime.now().plusMinutes(15))
                 .cuposMaximos(obtenerCuposPorVehiculo())
-                .estadoViaje(EstadoViaje.ENCURSO)
+                .estadoViaje(EstadoViaje.CREADO)
                 .build();
     }
 
@@ -61,7 +61,7 @@ public class ViajeDirector {
                 .destino("Universidad")
                 .horaSalida(LocalDateTime.now().plusMinutes(30))
                 .cuposMaximos(obtenerCuposPorVehiculo())
-                .estadoViaje(EstadoViaje.ENCURSO)
+                .estadoViaje(EstadoViaje.CREADO)
                 .build();
     }
 
@@ -72,7 +72,7 @@ public class ViajeDirector {
                 .destino("Universidad")
                 .horaSalida(LocalDateTime.now().plusMinutes(30))
                 .cuposMaximos(obtenerCuposPorVehiculo())
-                .estadoViaje(EstadoViaje.ENCURSO)
+                .estadoViaje(EstadoViaje.CREADO)
                 .build();
     }
 

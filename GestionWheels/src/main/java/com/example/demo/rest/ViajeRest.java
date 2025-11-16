@@ -20,7 +20,19 @@ import com.example.demo.service.ViajeService;
 public class ViajeRest {
  	@Autowired
     private ViajeService viajeService;
- 	
+
+
+	@PutMapping("/{id}/iniciar")
+	public ResponseEntity<String> iniciarViaje(@PathVariable int idViaje) {
+		boolean iniciado = viajeService.iniciarViaje(idViaje);
+
+		if (iniciado) {
+			return ResponseEntity.ok("El viaje ha iniciado.");
+		} else {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+					.body("Aún no puede iniciar el viaje.");
+		}
+	}
  	@PostMapping("/crear/{tipo}")
  	public ResponseEntity<?> crearViaje(@PathVariable("tipo") String tipo, @RequestParam("idConductor") int idConductor) {
  	    try {
@@ -113,5 +125,11 @@ public class ViajeRest {
 		return ResponseEntity.ok(rutas);
 	}
 
-	
+	@PostMapping("/finalizar/{idViaje}/{idConductor}")
+	public Viaje finalizarViaje(
+			@PathVariable int idViaje,
+			@PathVariable int idConductor
+	) {
+		return viajeService.finalizarViaje(idViaje, idConductor);
+	}
 }

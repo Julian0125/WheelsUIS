@@ -1,5 +1,7 @@
 package com.example.demo.service;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -98,6 +100,32 @@ public class ViajeService {
 
 	        return viajeRepository.save(viaje);
 	    }
+
+	public boolean  iniciarViaje(int  idViaje) {
+		Viaje viaje = viajeRepository.findById(idViaje)
+				.orElseThrow(() -> new IllegalArgumentException("Viaje no encontrado"));
+		LocalDateTime ahora = LocalDateTime.now();
+		LocalDateTime horaSalida = viaje.getHoraSalida();
+
+		boolean yaEsHora = !ahora.isBefore(horaSalida);
+		boolean sinCupos= viaje.getCuposMaximos()==0;
+		// 1. Si ya es la hora y los cupos están llenos
+		if (yaEsHora || sinCupos ) {
+			viaje.setEstadoViaje(EstadoViaje.ENCURSO);
+			return true;
+		}
+
+		// 2. Si han pasado 2 minutos desde la hora de salida
+		long minutosPasados = Duration.between(horaSalida, ahora).toMinutes();
+
+		if (minutosPasados >= 2) {
+			viaje.setEstadoViaje(EstadoViaje.ENCURSO);
+			return true;
+		}
+
+		return false;
+	}
+
 	 
 	 public Viaje aceptarViaje(int idViaje, int idPasajero) {
 		    Optional<Viaje> viajeOpt = viajeRepository.findById(idViaje);
@@ -204,6 +232,48 @@ public class ViajeService {
 		    return viajeRepository.findByPasajeros_IdAndEstadoViaje(idPasajero, EstadoViaje.ENCURSO)
 		            .orElseThrow(() -> new IllegalArgumentException("El pasajero no tiene un viaje activo"));
 		}
+
+
+
+	@Transactional
+	public Viaje finalizarViaje(int idViaje, int idConductor) {
+
+		Viaje viaje = viajeRepository.findById(idViaje)
+				.orElseThrow(() -> new IllegalArgumentException("Viaje no encontrado"));
+
+		Conductor conductor = conductorRepository.findById(idConductor)
+				.orElseThrow(() -> new IllegalArgumentException("Conductor no encontrado"));
+
+		// VALIDAR QUE EL VIAJE ESTÉ EN CURSO
+		if (viaje.getEstadoViaje() != EstadoViaje.ENCURSO) {
+			throw new IllegalArgumentException("El viaje no está en curso");
+		}
+
+		// VALIDAR QUE EL CONDUCTOR SEA EL DUEÑO DEL VIAJE
+		if (viaje.getConductor().getId() != conductor.getId()) {
+			throw new IllegalArgumentException("Solo el conductor puede finalizar el viaje");
+		}
+
+		// CAMBIAR ESTADO
+		viaje.setEstadoViaje(EstadoViaje.FINALIZADO);
+
+		// DESVINCULAR PASAJEROS
+		for (Pasajero pasajero : viaje.getPasajeros()) {
+			pasajero.setViajeActual(null);
+			pasajeroRepository.save(pasajero);
+
+			// NOTIFICAR A LOS PASAJEROS
+			String mensaje = "El viaje hacia " + viaje.getDestino() + " ha sido finalizado por el conductor.";
+			notificacionService.enviar(pasajero.getId(), mensaje);
+		}
+
+		// DESVINCULAR AL CONDUCTOR
+		conductor.setViajeActual(null);
+		conductorRepository.save(conductor);
+
+		return viajeRepository.save(viaje);
+	}
+
 
 
 
