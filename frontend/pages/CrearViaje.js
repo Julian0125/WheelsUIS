@@ -7,13 +7,15 @@ import {
     ScrollView,
     Platform,
     Alert,
+    Modal,
+    ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
-import { Picker } from '@react-native-picker/picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import ViajePollingService from '../services/ViajePollingService';
 
-export default function CrearViaje() {
+export default function CrearViaje({ navigation }) {
     const [origen, setOrigen] = useState('');
     const [destino, setDestino] = useState('');
     const [cupos, setCupos] = useState(1);
@@ -23,8 +25,48 @@ export default function CrearViaje() {
     const [conductorId, setConductorId] = useState(null);
     const [rutasDisponibles, setRutasDisponibles] = useState([]);
     const [cargandoRutas, setCargandoRutas] = useState(true);
+    const [horaSalida, setHoraSalida] = useState(null);
 
-    // 🔹 Cargar usuario logueado Y su vehículo desde AsyncStorage
+    // Estados para los modals
+    const [modalOrigenVisible, setModalOrigenVisible] = useState(false);
+    const [modalDestinoVisible, setModalDestinoVisible] = useState(false);
+
+    // Calcular hora de salida (10 minutos después)
+    useEffect(() => {
+        const ahora = new Date();
+        const salidaEnDiezMinutos = new Date(ahora.getTime() + 10 * 60000);
+        setHoraSalida(salidaEnDiezMinutos);
+    }, []);
+
+    // Limpiar monitoreo al desmontar el componente
+    useEffect(() => {
+        return () => {
+            ViajePollingService.detenerMonitoreo();
+        };
+    }, []);
+
+    // Formatear fecha
+    const formatearFecha = (fecha) => {
+        if (!fecha) return '';
+        const opciones = {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        };
+        return fecha.toLocaleDateString('es-CO', opciones);
+    };
+
+    // Formatear hora
+    const formatearHora = (fecha) => {
+        if (!fecha) return '';
+        return fecha.toLocaleTimeString('es-CO', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
+    // Cargar usuario logueado Y su vehículo desde AsyncStorage
     useEffect(() => {
         const cargarUsuario = async () => {
             try {
@@ -38,7 +80,7 @@ export default function CrearViaje() {
                     if (usuario.tipo === 'CONDUCTOR') {
                         setConductorId(usuario.id);
 
-                        // ✅ SOLUCIÓN: Usar el vehículo que viene del login
+
                         if (usuario.vehiculo) {
                             setVehiculo(usuario.vehiculo);
                             console.log('🚗 Vehículo del usuario:', usuario.vehiculo);
@@ -47,7 +89,6 @@ export default function CrearViaje() {
                             console.log('🔍 Tipo de vehículo detectado:', tipo);
                             setTipoVehiculo(tipo);
 
-                            // Ajustar cupos según el tipo
                             if (tipo === 'MOTO') {
                                 console.log('🏍️ Configurado como MOTO: 1 cupo');
                                 setCupos(1);
@@ -77,7 +118,7 @@ export default function CrearViaje() {
         cargarUsuario();
     }, []);
 
-    // 🔹 Obtener rutas predefinidas del backend
+    // Obtener rutas predefinidas del backend
     useEffect(() => {
         if (!conductorId) return;
 
@@ -114,17 +155,7 @@ export default function CrearViaje() {
         obtenerRutas();
     }, [conductorId, maxCupos]);
 
-    // 🗑️ Función para limpiar caché (temporal para debug)
-    const limpiarCache = async () => {
-        try {
-            await AsyncStorage.removeItem('usuario');
-            Alert.alert('✅ Listo', 'Caché limpiada. Por favor vuelve a iniciar sesión.');
-        } catch (error) {
-            console.error('Error al limpiar caché:', error);
-        }
-    };
-
-    // 🔹 Control de cupos
+    // Control de cupos
     const aumentarCupos = () => {
         if (cupos < maxCupos) setCupos(cupos + 1);
     };
@@ -133,8 +164,51 @@ export default function CrearViaje() {
         if (cupos > 1) setCupos(cupos - 1);
     };
 
-    // 🔹 Crear viaje
+    // Callback cuando el viaje inicia automáticamente
+    const onViajeIniciado = (iniciado, mensaje) => {
+        if (iniciado) {
+            Alert.alert(
+                '🚗 Viaje Iniciado',
+                'Tu viaje ha iniciado automáticamente. Los pasajeros han sido notificados.',
+                [
+                    {
+                        text: 'OK',
+                        onPress: () => {
+                            // Opcional: navegar a otra pantalla
+                            // navigation.navigate('ViajeEnCurso');
+                        }
+                    }
+                ]
+            );
+        }
+    };
+
+    // ✅ FUNCIÓN SIMPLIFICADA PARA DETERMINAR TIPO DE VIAJE
+    const determinarTipoViaje = (origen, destino) => {
+        const origenLower = origen.toLowerCase();
+        const destinoLower = destino.toLowerCase();
+
+        console.log('🔍 Analizando ruta:', { origen: origenLower, destino: destinoLower });
+
+        // Cualquier ruta que involucre Mutis
+        if (origenLower.includes('mutis') || destinoLower.includes('mutis')) {
+            console.log('✅ Detectado: Ruta Mutis (tipo: mutis)');
+            return 'mutis';
+        }
+
+        // Cualquier ruta que involucre Cumbre
+        if (origenLower.includes('cumbre') || destinoLower.includes('cumbre')) {
+            console.log('✅ Detectado: Ruta Cumbre (tipo: cumbre)');
+            return 'cumbre';
+        }
+
+        console.log('❌ No se pudo determinar el tipo de viaje');
+        return null;
+    };
+
+    // ✅ CREAR VIAJE - VERSIÓN SIMPLIFICADA SIN VERIFICACIÓN PREVIA
     const crearViaje = async () => {
+        // Validaciones básicas
         if (!origen || !destino) {
             Alert.alert('Error', 'Por favor selecciona origen y destino.');
             return;
@@ -145,44 +219,136 @@ export default function CrearViaje() {
             return;
         }
 
+        if (!conductorId) {
+            Alert.alert('Error', 'No se pudo identificar el conductor.');
+            return;
+        }
+
         try {
-            let tipoViaje = '';
-            if (destino.toLowerCase().includes('mutis')) {
-                tipoViaje = 'mutis';
-            } else if (destino.toLowerCase().includes('cumbre')) {
-                tipoViaje = 'cumbre';
-            } else {
-                Alert.alert('Error', 'Tipo de viaje no reconocido. Selecciona Mutis o Cumbre como destino.');
+            // Determinar tipo de viaje
+            const tipoViaje = determinarTipoViaje(origen, destino);
+
+            if (!tipoViaje) {
+                Alert.alert(
+                    'Error',
+                    `No se pudo determinar el tipo de viaje para la ruta:\n\n${origen} → ${destino}\n\nPor favor, selecciona una ruta válida.`
+                );
                 return;
             }
 
-            console.log('🚀 Creando viaje tipo:', tipoViaje, 'para conductor:', conductorId);
+            console.log('🚀 Iniciando creación de viaje con:');
+            console.log('   - Conductor ID:', conductorId);
+            console.log('   - Tipo de viaje:', tipoViaje);
+            console.log('   - Origen:', origen);
+            console.log('   - Destino:', destino);
+            console.log('   - Cupos:', cupos);
+            console.log('   - Vehículo:', vehiculo.placa, '-', vehiculo.tipo);
 
-            const response = await fetch(
-                `https://wheelsuis.onrender.com/viaje/crear/${tipoViaje}?idConductor=${conductorId}`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
+            const url = `https://wheelsuis.onrender.com/viaje/crear/${tipoViaje}?idConductor=${conductorId}`;
+            console.log('📡 URL completa:', url);
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
                 }
-            );
+            });
+
+            console.log('📡 Response status:', response.status);
 
             if (response.ok) {
                 const viaje = await response.json();
-                console.log('✅ Viaje creado:', viaje);
-                Alert.alert('Éxito', '✅ Viaje creado correctamente');
+                console.log('✅ Viaje creado exitosamente:', viaje);
 
-                setOrigen('');
-                setDestino('');
-                setCupos(tipoVehiculo === 'MOTO' ? 1 : 1);
+                // Iniciar monitoreo del viaje
+                ViajePollingService.iniciarMonitoreo(viaje.id, onViajeIniciado);
+
+                Alert.alert(
+                    '✅ Éxito',
+                    `Viaje creado correctamente\n\nRuta: ${origen} → ${destino}\nSalida: ${formatearHora(horaSalida)}\nCupos: ${cupos}\n\n🔔 El viaje iniciará automáticamente en 10 minutos o cuando se llenen los cupos.`,
+                    [
+                        {
+                            text: 'OK',
+                            onPress: () => {
+                                // Resetear formulario
+                                setOrigen('');
+                                setDestino('');
+                                setCupos(tipoVehiculo === 'MOTO' ? 1 : 1);
+
+                                // Recalcular nueva hora
+                                const ahora = new Date();
+                                const nuevaSalida = new Date(ahora.getTime() + 10 * 60000);
+                                setHoraSalida(nuevaSalida);
+
+                                // Navegar de vuelta
+                                navigation.goBack();
+                            }
+                        }
+                    ]
+                );
             } else {
-                const error = await response.text();
-                Alert.alert('Error', error || 'No se pudo crear el viaje');
+                // Manejo de errores
+                const contentType = response.headers.get('content-type');
+                let errorData = null;
+
+                try {
+                    if (contentType && contentType.includes('application/json')) {
+                        errorData = await response.json();
+                        console.log('❌ Error JSON completo:', JSON.stringify(errorData, null, 2));
+                    } else {
+                        const errorText = await response.text();
+                        console.log('❌ Error de texto:', errorText);
+                        errorData = { message: errorText };
+                    }
+                } catch (parseError) {
+                    console.error('❌ Error al parsear respuesta:', parseError);
+                }
+
+                // ⚠️ MENSAJE ESPECÍFICO PARA ERROR 500
+                if (response.status === 500) {
+                    Alert.alert(
+                        '⚠️ No se pudo crear el viaje',
+                        'El servidor encontró un problema al procesar tu solicitud.\n\n' +
+                        '🔍 Posibles causas:\n' +
+                        '• Ya tienes un viaje activo en el sistema\n' +
+                        '• Hay un problema con el servidor\n\n' +
+                        '💡 Soluciones:\n' +
+                        '1. Cierra sesión y vuelve a iniciar\n' +
+                        '2. Si el problema persiste, contacta al administrador\n' +
+                        '3. Intenta crear el viaje desde la app móvil',
+                        [
+                            {
+                                text: 'Cerrar sesión',
+                                style: 'destructive',
+                                onPress: async () => {
+                                    // Aquí podrías llamar a tu función de logout
+                                    // await logout();
+                                    navigation.reset({
+                                        index: 0,
+                                        routes: [{ name: 'Login' }],
+                                    });
+                                }
+                            },
+                            {
+                                text: 'Volver',
+                                style: 'cancel'
+                            }
+                        ]
+                    );
+                } else if (response.status === 400) {
+                    const errorMsg = errorData?.message || errorData?.error || 'Datos inválidos';
+                    Alert.alert('Error', errorMsg);
+                } else {
+                    const errorMsg = errorData?.message || `Error ${response.status}`;
+                    Alert.alert('Error al Crear Viaje', errorMsg);
+                }
             }
         } catch (error) {
-            console.error('❌ Error al crear viaje:', error);
-            Alert.alert('Error', 'No se pudo crear el viaje. Intenta nuevamente.');
+            console.error('❌ Error crítico:', error);
+            Alert.alert(
+                'Error de Conexión',
+                'No se pudo conectar con el servidor. Verifica tu conexión a internet.'
+            );
         }
     };
 
@@ -191,14 +357,97 @@ export default function CrearViaje() {
         ? rutasDisponibles.filter(r => r.origen === origen).map(r => r.destino)
         : [];
 
+    // Componente de selección con modal
+    const SelectorModal = ({ visible, onClose, options, onSelect, title, selectedValue }) => (
+        <Modal
+            animationType="slide"
+            transparent={true}
+            visible={visible}
+            onRequestClose={onClose}
+        >
+            <View style={styles.modalOverlay}>
+                <View style={styles.modalContent}>
+                    <View style={styles.modalHeader}>
+                        <Text style={styles.modalTitle}>{title}</Text>
+                        <TouchableOpacity onPress={onClose}>
+                            <Ionicons name="close" size={28} color="#666" />
+                        </TouchableOpacity>
+                    </View>
+
+                    <ScrollView style={styles.modalScroll}>
+                        {options.length === 0 ? (
+                            <View style={styles.emptyOptions}>
+                                <Text style={styles.emptyText}>
+                                    {title === 'Selecciona Origen'
+                                        ? 'No hay orígenes disponibles'
+                                        : 'Selecciona un origen primero'}
+                                </Text>
+                            </View>
+                        ) : (
+                            options.map((option, index) => (
+                                <TouchableOpacity
+                                    key={index}
+                                    style={[
+                                        styles.optionItem,
+                                        selectedValue === option && styles.optionItemSelected
+                                    ]}
+                                    onPress={() => {
+                                        onSelect(option);
+                                        onClose();
+                                    }}
+                                >
+                                    <Text style={[
+                                        styles.optionText,
+                                        selectedValue === option && styles.optionTextSelected
+                                    ]}>
+                                        {option}
+                                    </Text>
+                                    {selectedValue === option && (
+                                        <Ionicons name="checkmark-circle" size={24} color="#207636" />
+                                    )}
+                                </TouchableOpacity>
+                            ))
+                        )}
+                    </ScrollView>
+                </View>
+            </View>
+        </Modal>
+    );
+
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView contentContainerStyle={styles.container}>
                 <Text style={styles.titulo}>Crear Viaje</Text>
 
-                {/* 🗑️ Botón temporal para limpiar caché - ELIMINAR EN PRODUCCIÓN */}
 
-                {/* 🔹 Vehículo y tipo */}
+                {/* Fecha y Hora de salida */}
+                <View style={styles.horarioContainer}>
+                    <View style={styles.horarioCard}>
+                        <Ionicons name="calendar" size={24} color="#207636" />
+                        <View style={styles.horarioInfo}>
+                            <Text style={styles.horarioLabel}>Fecha de salida</Text>
+                            <Text style={styles.horarioValor}>
+                                {formatearFecha(horaSalida)}
+                            </Text>
+                        </View>
+                    </View>
+
+                    <View style={styles.horarioCard}>
+                        <Ionicons name="time" size={24} color="#207636" />
+                        <View style={styles.horarioInfo}>
+                            <Text style={styles.horarioLabel}>Hora de salida</Text>
+                            <Text style={styles.horarioValor}>
+                                {formatearHora(horaSalida)}
+                            </Text>
+                        </View>
+                    </View>
+                </View>
+
+                <Text style={styles.infoSalida}>
+                    ⏱️ El viaje iniciará automáticamente 10 minutos después de crearlo
+                </Text>
+
+                {/* Vehículo y tipo */}
                 <View style={styles.vehiculoSection}>
                     <Text style={styles.subtitulo}>Tu vehículo:</Text>
                     <View style={styles.tipoVehiculoContainer}>
@@ -233,7 +482,7 @@ export default function CrearViaje() {
                     )}
                 </View>
 
-                {/* 🔹 Cupos */}
+                {/* Cupos */}
                 <View style={styles.cuposContainer}>
                     <Text style={styles.label}>Número de cupos disponibles:</Text>
                     <View style={styles.cuposControles}>
@@ -269,55 +518,78 @@ export default function CrearViaje() {
                     </Text>
                 </View>
 
-                {/* 🔹 Origen */}
+                {/* Origen con modal */}
                 <View style={styles.inputContainer}>
                     <Text style={styles.label}>Origen:</Text>
-                    <View style={styles.pickerContainer}>
-                        <Picker
-                            selectedValue={origen}
-                            onValueChange={(value) => {
-                                setOrigen(value);
-                                setDestino('');
-                            }}
-                            style={styles.picker}
-                            enabled={!cargandoRutas}
-                        >
-                            <Picker.Item
-                                label={cargandoRutas ? "Cargando..." : "Seleccione origen"}
-                                value=""
-                            />
-                            {origenesUnicos.map((org, index) => (
-                                <Picker.Item key={index} label={org} value={org} />
-                            ))}
-                        </Picker>
-                    </View>
+                    <TouchableOpacity
+                        style={styles.selectorButton}
+                        onPress={() => setModalOrigenVisible(true)}
+                        disabled={cargandoRutas}
+                    >
+                        <Text style={[
+                            styles.selectorText,
+                            !origen && styles.selectorPlaceholder
+                        ]}>
+                            {cargandoRutas
+                                ? 'Cargando...'
+                                : origen || 'Seleccione origen'}
+                        </Text>
+                        <Ionicons name="chevron-down" size={24} color="#666" />
+                    </TouchableOpacity>
                 </View>
 
-                {/* 🔹 Destino */}
+                {/* Destino con modal */}
                 <View style={styles.inputContainer}>
                     <Text style={styles.label}>Destino:</Text>
-                    <View style={styles.pickerContainer}>
-                        <Picker
-                            selectedValue={destino}
-                            onValueChange={(value) => setDestino(value)}
-                            style={styles.picker}
-                            enabled={!cargandoRutas && origen !== ''}
-                        >
-                            <Picker.Item
-                                label={origen === '' ? "Seleccione origen primero" : "Seleccione destino"}
-                                value=""
-                            />
-                            {destinosDisponibles.map((dest, index) => (
-                                <Picker.Item key={index} label={dest} value={dest} />
-                            ))}
-                        </Picker>
-                    </View>
+                    <TouchableOpacity
+                        style={[
+                            styles.selectorButton,
+                            !origen && styles.selectorDisabled
+                        ]}
+                        onPress={() => setModalDestinoVisible(true)}
+                        disabled={cargandoRutas || !origen}
+                    >
+                        <Text style={[
+                            styles.selectorText,
+                            !destino && styles.selectorPlaceholder
+                        ]}>
+                            {!origen
+                                ? 'Seleccione origen primero'
+                                : destino || 'Seleccione destino'}
+                        </Text>
+                        <Ionicons name="chevron-down" size={24} color="#666" />
+                    </TouchableOpacity>
                 </View>
 
-                <TouchableOpacity style={styles.boton} onPress={crearViaje}>
+                <TouchableOpacity
+                    style={styles.boton}
+                    onPress={crearViaje}
+                >
                     <Text style={styles.botonTexto}>Crear Viaje</Text>
                 </TouchableOpacity>
             </ScrollView>
+
+            {/* Modals */}
+            <SelectorModal
+                visible={modalOrigenVisible}
+                onClose={() => setModalOrigenVisible(false)}
+                options={origenesUnicos}
+                onSelect={(value) => {
+                    setOrigen(value);
+                    setDestino('');
+                }}
+                title="Selecciona Origen"
+                selectedValue={origen}
+            />
+
+            <SelectorModal
+                visible={modalDestinoVisible}
+                onClose={() => setModalDestinoVisible(false)}
+                options={destinosDisponibles}
+                onSelect={setDestino}
+                title="Selecciona Destino"
+                selectedValue={destino}
+            />
         </SafeAreaView>
     );
 }
@@ -336,20 +608,43 @@ const styles = StyleSheet.create({
         fontSize: 28,
         fontWeight: 'bold',
         textAlign: 'center',
-        marginBottom: 10,
+        marginBottom: 20,
         color: '#207636',
     },
-    botonDebug: {
-        backgroundColor: '#ff6b6b',
-        padding: 10,
-        borderRadius: 8,
-        marginBottom: 15,
-        alignItems: 'center',
+    horarioContainer: {
+        marginBottom: 10,
     },
-    textoDebug: {
-        color: 'white',
-        fontSize: 12,
-        fontWeight: 'bold',
+    horarioCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f8f8f8',
+        padding: 15,
+        borderRadius: 12,
+        marginBottom: 10,
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
+    },
+    horarioInfo: {
+        marginLeft: 15,
+        flex: 1,
+    },
+    horarioLabel: {
+        fontSize: 13,
+        color: '#666',
+        marginBottom: 3,
+    },
+    horarioValor: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#333',
+    },
+    infoSalida: {
+        fontSize: 13,
+        color: '#666',
+        textAlign: 'center',
+        fontStyle: 'italic',
+        marginBottom: 20,
+        paddingHorizontal: 10,
     },
     subtitulo: {
         fontSize: 16,
@@ -419,15 +714,29 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#444',
         marginBottom: 5,
+        fontSize: 16,
     },
-    pickerContainer: {
-        borderWidth: 1,
+    selectorButton: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderWidth: 1.5,
         borderColor: '#ccc',
         borderRadius: 10,
-        overflow: 'hidden',
+        paddingVertical: 15,
+        paddingHorizontal: 15,
+        backgroundColor: '#fff',
     },
-    picker: {
-        height: 45,
+    selectorDisabled: {
+        backgroundColor: '#f5f5f5',
+        borderColor: '#e0e0e0',
+    },
+    selectorText: {
+        fontSize: 16,
+        color: '#333',
+    },
+    selectorPlaceholder: {
+        color: '#999',
     },
     boton: {
         backgroundColor: '#207636',
@@ -440,5 +749,62 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontWeight: 'bold',
         fontSize: 16,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        maxHeight: '70%',
+        paddingBottom: 20,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e0e0e0',
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#333',
+    },
+    modalScroll: {
+        maxHeight: 400,
+    },
+    optionItem: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 16,
+        paddingHorizontal: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+    },
+    optionItemSelected: {
+        backgroundColor: '#e8f5e9',
+    },
+    optionText: {
+        fontSize: 16,
+        color: '#333',
+    },
+    optionTextSelected: {
+        fontWeight: 'bold',
+        color: '#207636',
+    },
+    emptyOptions: {
+        padding: 40,
+        alignItems: 'center',
+    },
+    emptyText: {
+        fontSize: 16,
+        color: '#999',
+        textAlign: 'center',
     },
 });
