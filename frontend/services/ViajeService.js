@@ -54,54 +54,53 @@ const ViajeService = {
         }
     },
 
-    // ===================================================
-    // VIAJE ACTUAL DEL CONDUCTOR
-    // ===================================================
     obtenerViajeActualConductor: async (idConductor) => {
         try {
+            // 1️⃣ Intentar leer desde almacenamiento local (rápido)
             const local = await ViajeService.obtenerViajeDesdeStorage();
 
             if (local && (local.estadoViaje === "CREADO" || local.estadoViaje === "ENCURSO")) {
                 return { success: true, data: local };
             }
 
-            console.log("🔍 Consultando conductor...");
-            const resCond = await fetch(`${HTTP_BASE_URL}/api/conductor/listar`);
-            if (resCond.ok) {
-                const conductores = await resCond.json();
-                const conductor = conductores.find(c => c.id === idConductor);
+            // 2️⃣ Consultar SOLO la ruta que SÍ funciona = /api/conductor/listar
+            console.log("🔍 Buscando viaje actual en /api/conductor/listar ...");
 
-                if (conductor?.viajeActual) {
-                    const viaje = normalizarViaje(conductor.viajeActual);
-                    if (viaje.estadoViaje === "CREADO" || viaje.estadoViaje === "ENCURSO") {
-                        await ViajeService.guardarViajeActual(viaje);
-                        return { success: true, data: viaje };
-                    }
-                }
+            const res = await fetch(`${HTTP_BASE_URL}/api/conductor/listar`);
+            if (!res.ok) {
+                await ViajeService.limpiarViajeActual();
+                return { success: false, error: "No hay viaje activo" };
             }
 
-            console.log("📦 Buscando en historial...");
-            const resHist = await fetch(`${HTTP_BASE_URL}/viaje/conductor/${idConductor}/historial`);
-            if (resHist.ok) {
-                const viajes = await resHist.json();
-                const viajeActivo = viajes
-                    .map(v => normalizarViaje(v))
-                    .find(v => v.estadoViaje === "CREADO" || v.estadoViaje === "ENCURSO");
+            const lista = await res.json();
+            const conductor = lista.find(c => c.id === idConductor);
 
-                if (viajeActivo) {
-                    await ViajeService.guardarViajeActual(viajeActivo);
-                    return { success: true, data: viajeActivo };
-                }
+            // 3️⃣ Si no existe o no tiene viajeActual → nada activo
+            if (!conductor || !conductor.viajeActual) {
+                await ViajeService.limpiarViajeActual();
+                return { success: false, error: "No hay viaje activo" };
             }
 
-            await ViajeService.limpiarViajeActual();
-            return { success: false, error: "No hay viaje activo" };
+            const viaje = normalizarViaje(conductor.viajeActual);
+
+            // 4️⃣ Validar estado
+            if (viaje.estadoViaje !== "CREADO" && viaje.estadoViaje !== "ENCURSO") {
+                await ViajeService.limpiarViajeActual();
+                return { success: false, error: "No hay viaje activo" };
+            }
+
+            // 5️⃣ Guardar cache
+            await ViajeService.guardarViajeActual(viaje);
+
+            return { success: true, data: viaje };
 
         } catch (error) {
-            console.error("❌ Error en obtenerViajeActualConductor:", error);
+            console.error("❌ Error obtenerViajeActualConductor:", error);
             return { success: false, error: "Error al obtener viaje actual" };
         }
     },
+
+
 
     // ===================================================
     // CREAR VIAJE PREDEFINIDO

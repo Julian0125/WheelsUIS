@@ -6,9 +6,10 @@ class ViajePollingServiceClass {
         this.viajeActualId = null;
         this.intentosFallidos = 0;
         this.maxIntentosAntesDePausar = 3;
+        this.horaCreacionViaje = null; // ✅ NUEVO: Guardamos la hora de creación
     }
 
-    iniciarMonitoreo(idViaje, onViajeIniciado) {
+    iniciarMonitoreo(idViaje, onViajeIniciado, horaCreacion = null) {
         if (this.intervalId && this.viajeActualId === idViaje) {
             console.log('⚠️ Ya se está monitoreando el viaje', idViaje);
             return;
@@ -18,7 +19,10 @@ class ViajePollingServiceClass {
 
         this.viajeActualId = idViaje;
         this.intentosFallidos = 0;
+        this.horaCreacionViaje = horaCreacion || new Date(); // ✅ Guardamos hora de creación
+
         console.log('🔄 Iniciando monitoreo del viaje', idViaje);
+        console.log('⏰ Hora de creación:', this.horaCreacionViaje);
 
         // Primera verificación inmediata
         this.verificarEstadoViaje(idViaje, onViajeIniciado);
@@ -29,7 +33,6 @@ class ViajePollingServiceClass {
         }, 10000);
     }
 
-    // 👉 Convertir siempre la fecha a hora local correcta
     normalizarFecha(fechaISO) {
         if (!fechaISO) return null;
         return new Date(fechaISO);
@@ -61,9 +64,12 @@ class ViajePollingServiceClass {
                     const viaje = conductorConViaje.viajeActual;
 
                     console.log('📦 Estado del viaje:', viaje.estadoViaje);
+                    console.log('👥 Pasajeros actuales:', viaje.pasajeros?.length || 0);
+                    console.log('🎯 Cupos máximos:', viaje.cuposMaximos);
 
                     this.intentosFallidos = 0;
 
+                    // ✅ Si ya está EN CURSO, notificar y detener
                     if (viaje.estadoViaje === 'ENCURSO') {
                         console.log('✅ ¡Viaje iniciado automáticamente!');
                         callback && callback(true, 'El viaje ha iniciado automáticamente');
@@ -71,30 +77,53 @@ class ViajePollingServiceClass {
                         return;
                     }
 
+                    // ✅ Si está CREADO, verificar condiciones de inicio
                     if (viaje.estadoViaje === 'CREADO') {
-
                         const ahora = new Date();
+                        const horaCreacion = this.horaCreacionViaje || new Date(viaje.horaSalida);
 
-                        // Convertir horaSalida a hora local REAL
-                        const horaSalidaUTC = new Date(viaje.horaSalida);
-                        const horaSalidaLocal = new Date(horaSalidaUTC.getTime() - (horaSalidaUTC.getTimezoneOffset() * 60000));
+                        // ✅ CALCULAR MINUTOS DESDE LA CREACIÓN
+                        const minutosDesdeCreacion = Math.floor((ahora - horaCreacion) / 1000 / 60);
 
-                        const minutosRestantes = Math.ceil((horaSalidaLocal - ahora) / 1000 / 60);
+                        // ✅ VERIFICAR CUPOS
+                        const cuposOcupados = viaje.pasajeros?.length || 0;
+                        const cuposDisponibles = viaje.cuposMaximos - cuposOcupados;
 
+                        console.log('⏱️ Minutos desde creación:', minutosDesdeCreacion);
+                        console.log('👥 Cupos disponibles:', cuposDisponibles);
 
                         let mensaje = '';
 
-                        if (minutosRestantes > 0) {
-                            // ⏱️ Siempre mostrar 10 minutos exactos
-                            mensaje = `El viaje iniciará en 10 minuto(s) o cuando se llenen los cupos (${viaje.pasajeros.length}/${viaje.cuposMaximos})`;
-                        } else {
-                            const minutosTranscurridos = Math.abs(minutosRestantes);
+                        // ✅ CONDICIÓN 1: CUPOS LLENOS
+                        if (cuposDisponibles === 0) {
+                            console.log('🎯 ¡Cupos llenos! Intentando iniciar viaje...');
+                            const inicioExitoso = await this.intentarIniciarViaje(idViaje);
 
-                            if (minutosTranscurridos >= 2) {
-                                mensaje = 'El viaje debería iniciar en cualquier momento...';
+                            if (inicioExitoso) {
+                                callback && callback(true, 'El viaje ha iniciado: cupos llenos');
+                                this.detenerMonitoreo();
+                                return;
                             } else {
-                                mensaje = `Esperando 2 minutos desde la hora de salida (${2 - minutosTranscurridos} min restantes)`;
+                                mensaje = 'Cupos llenos. Esperando confirmación del servidor...';
                             }
+                        }
+                        // ✅ CONDICIÓN 2: 10 MINUTOS DESDE CREACIÓN
+                        else if (minutosDesdeCreacion >= 10) {
+                            console.log('⏰ ¡10 minutos transcurridos! Intentando iniciar viaje...');
+                            const inicioExitoso = await this.intentarIniciarViaje(idViaje);
+
+                            if (inicioExitoso) {
+                                callback && callback(true, 'El viaje ha iniciado: tiempo cumplido');
+                                this.detenerMonitoreo();
+                                return;
+                            } else {
+                                mensaje = '10 minutos cumplidos. Esperando confirmación del servidor...';
+                            }
+                        }
+                        // ⏳ AÚN NO SE CUMPLEN LAS CONDICIONES
+                        else {
+                            const minutosRestantes = 10 - minutosDesdeCreacion;
+                            mensaje = `El viaje iniciará en ${minutosRestantes} minuto(s) o cuando se llenen los cupos (${cuposOcupados}/${viaje.cuposMaximos})`;
                         }
 
                         console.log('⏳', mensaje);
@@ -102,6 +131,7 @@ class ViajePollingServiceClass {
                         return;
                     }
 
+                    // ✅ VIAJE FINALIZADO O CANCELADO
                     if (viaje.estadoViaje === 'FINALIZADO' || viaje.estadoViaje === 'CANCELADO') {
                         console.log('🏁 Viaje finalizado/cancelado');
                         this.detenerMonitoreo();
@@ -132,11 +162,42 @@ class ViajePollingServiceClass {
         }
     }
 
+    // ✅ NUEVA FUNCIÓN: Intenta iniciar el viaje en el backend
+    async intentarIniciarViaje(idViaje) {
+        try {
+            console.log('🚀 Intentando iniciar viaje en el servidor...');
+
+            const response = await fetch(
+                `https://wheelsuis.onrender.com/viaje/${idViaje}/iniciar`,
+                {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                }
+            );
+
+            if (response.ok) {
+                const mensaje = await response.text();
+                console.log('✅ Respuesta del servidor:', mensaje);
+                return true;
+            } else {
+                const error = await response.text();
+                console.log('⚠️ El servidor aún no permite iniciar:', error);
+                return false;
+            }
+        } catch (error) {
+            console.error('❌ Error al intentar iniciar viaje:', error);
+            return false;
+        }
+    }
+
     detenerMonitoreo() {
         if (this.intervalId) {
             clearInterval(this.intervalId);
             this.intervalId = null;
             this.viajeActualId = null;
+            this.horaCreacionViaje = null;
             this.intentosFallidos = 0;
             console.log('⏹️ Monitoreo detenido');
         }

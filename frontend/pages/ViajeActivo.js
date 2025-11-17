@@ -24,8 +24,63 @@ export default function ViajeActivo({ navigation, route }) {
     const [cancelandoViaje, setCancelandoViaje] = useState(false);
     const [mensajeEstado, setMensajeEstado] = useState('');
 
+    // Convierte fecha del backend a local (si viene string)
+    const convertirFechaLocal = (fecha) => {
+        if (!fecha) return null;
+        try {
+            const f = typeof fecha === 'string' ? new Date(fecha) : fecha;
+            // Si fecha parece UTC sin zona, interpretamos sus componentes UTC
+            const local = new Date(
+                f.getUTCFullYear(),
+                f.getUTCMonth(),
+                f.getUTCDate(),
+                f.getUTCHours(),
+                f.getUTCMinutes(),
+                f.getUTCSeconds()
+            );
+            return local;
+        } catch {
+            return new Date(fecha);
+        }
+    };
+
+    // Polling para actualizar cupos automáticamente cada 5s
+    useEffect(() => {
+        if (!viaje?.id) return;
+
+        const interval = setInterval(() => {
+            actualizarViajeEnSegundoPlano();
+        }, 5000);
+
+        return () => clearInterval(interval);
+    }, [viaje?.id]);
+
+    const actualizarViajeEnSegundoPlano = async () => {
+        try {
+            const result = await ViajeService.obtenerViajeActualConductor(usuario.id);
+
+            if (result && result.success && result.data) {
+                // Convertir hora si es necesario
+                if (result.data.horaSalida) {
+                    result.data.horaSalida = convertirFechaLocal(result.data.horaSalida);
+                }
+
+                if (JSON.stringify(result.data) !== JSON.stringify(viaje)) {
+                    console.log('🔄 Viaje actualizado automáticamente');
+                    setViaje(result.data);
+                }
+            }
+        } catch (error) {
+            console.error('Error al actualizar viaje:', error);
+        }
+    };
+
     useEffect(() => {
         if (viaje) {
+            if (viaje.horaSalida) {
+                // Asegurar tipo Date local
+                viaje.horaSalida = convertirFechaLocal(viaje.horaSalida);
+            }
             if (viaje.estadoViaje === 'CREADO') {
                 ViajePollingService.iniciarMonitoreo(viaje.id, handleViajeIniciado);
             }
@@ -49,21 +104,27 @@ export default function ViajeActivo({ navigation, route }) {
             setLoading(true);
             const result = await ViajeService.obtenerViajeActualConductor(usuario.id);
 
-            if (result.success) {
-                setViaje(result.data);
+            if (result && result.success) {
+                const data = result.data;
+                if (data.horaSalida) data.horaSalida = convertirFechaLocal(data.horaSalida);
+                setViaje(data);
 
-                if (result.data.estadoViaje === 'FINALIZADO' || result.data.estadoViaje === 'CANCELADO') {
+                if (data.estadoViaje === 'FINALIZADO' || data.estadoViaje === 'CANCELADO') {
+                    ViajePollingService.detenerMonitoreo();
+                    await ViajeService.limpiarViajeActual();
                     navigation.replace('HomeConductor');
                     return;
                 }
 
-                if (result.data.estadoViaje === 'CREADO') {
-                    ViajePollingService.iniciarMonitoreo(result.data.id, handleViajeIniciado);
+                if (data.estadoViaje === 'CREADO') {
+                    ViajePollingService.iniciarMonitoreo(data.id, handleViajeIniciado);
                 }
             } else {
+                // No hay viaje activo para el conductor
                 navigation.replace('HomeConductor');
             }
         } catch (error) {
+            console.error('Error cargarViajeActual:', error);
             AlertService.alert('Error', 'No se pudo cargar el viaje');
         } finally {
             setLoading(false);
@@ -101,7 +162,7 @@ export default function ViajeActivo({ navigation, route }) {
                         'CONDUCTOR'
                     );
 
-                    if (result.success) {
+                    if (result && result.success) {
                         ViajePollingService.detenerMonitoreo();
                         await ViajeService.limpiarViajeActual();
 
@@ -111,9 +172,10 @@ export default function ViajeActivo({ navigation, route }) {
                             [{ text: 'OK', onPress: () => navigation.replace('HomeConductor') }]
                         );
                     } else {
-                        AlertService.alert('Error', result.error || 'No se pudo cancelar el viaje');
+                        AlertService.alert('Error', result?.error || 'No se pudo cancelar el viaje');
                     }
-                } catch {
+                } catch (err) {
+                    console.error('Error cancelar:', err);
                     AlertService.alert('Error', 'No se pudo cancelar el viaje');
                 } finally {
                     setCancelandoViaje(false);
@@ -131,7 +193,7 @@ export default function ViajeActivo({ navigation, route }) {
                     setFinalizandoViaje(true);
                     const result = await ViajeService.finalizarViaje(viaje.id, usuario.id);
 
-                    if (result.success) {
+                    if (result && result.success) {
                         await ViajeService.limpiarViajeActual();
                         AlertService.alert(
                             '🏁 Viaje Finalizado',
@@ -139,9 +201,10 @@ export default function ViajeActivo({ navigation, route }) {
                             [{ text: 'OK', onPress: () => navigation.replace('HomeConductor') }]
                         );
                     } else {
-                        AlertService.alert('Error', result.error || 'No se pudo finalizar el viaje');
+                        AlertService.alert('Error', result?.error || 'No se pudo finalizar el viaje');
                     }
-                } catch {
+                } catch (err) {
+                    console.error('Error finalizar:', err);
                     AlertService.alert('Error', 'No se pudo finalizar el viaje');
                 } finally {
                     setFinalizandoViaje(false);
@@ -155,25 +218,33 @@ export default function ViajeActivo({ navigation, route }) {
     };
 
     const formatearFecha = (fecha) => {
-        if (!fecha) return '';
-        const fechaObj = typeof fecha === 'string' ? new Date(fecha) : fecha;
-
-        return fechaObj.toLocaleDateString('es-CO', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-        });
+        if (!fecha) {
+            return 'Fecha no disponible';
+        }
+        try {
+            const fechaObj = typeof fecha === 'string' ? convertirFechaLocal(fecha) : fecha;
+            return fechaObj.toLocaleDateString('es-CO', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        } catch (error) {
+            return 'Error en fecha';
+        }
     };
 
     const formatearHora = (fecha) => {
-        if (!fecha) return '';
-        const fechaObj = typeof fecha === 'string' ? new Date(fecha) : fecha;
-
-        return fechaObj.toLocaleTimeString('es-CO', {
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+        if (!fecha) return 'Hora no disponible';
+        try {
+            const fechaObj = typeof fecha === 'string' ? convertirFechaLocal(fecha) : fecha;
+            return fechaObj.toLocaleTimeString('es-CO', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        } catch {
+            return 'Error en hora';
+        }
     };
 
     const obtenerEstadoBadge = () => {
@@ -214,6 +285,7 @@ export default function ViajeActivo({ navigation, route }) {
     }
 
     const estadoBadge = obtenerEstadoBadge();
+    const cuposDisponibles = (viaje.cuposMaximos || 0) - (viaje.pasajeros?.length || 0);
 
     return (
         <ScrollView
@@ -222,7 +294,7 @@ export default function ViajeActivo({ navigation, route }) {
                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#207636']} />
             }
         >
-            {/* HEADER SIN BOTONES */}
+            {/* HEADER */}
             <View style={styles.header}>
                 <Text style={styles.headerTitleCentered}>Viaje Activo</Text>
             </View>
@@ -281,11 +353,27 @@ export default function ViajeActivo({ navigation, route }) {
                 </View>
 
                 <View style={styles.detalleRow}>
-                    <Ionicons name="people-outline" size={20} color="#666" />
+                    <Ionicons name="time-outline" size={20} color="#666" />
                     <Text style={styles.detalleTexto}>
-                        {viaje.pasajeros?.length || 0} / {viaje.cuposMaximos} pasajeros
+                        {formatearHora(viaje.horaSalida)}
                     </Text>
                 </View>
+
+                <View style={styles.detalleRow}>
+                    <Ionicons name="people-outline" size={20} color="#666" />
+                    <Text style={styles.detalleTexto}>
+                        {viaje.pasajeros?.length || 0} / {viaje.cuposMaximos || 0} pasajeros
+                    </Text>
+                </View>
+
+                {cuposDisponibles > 0 && (
+                    <View style={styles.cuposDisponiblesBox}>
+                        <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+                        <Text style={styles.cuposDisponiblesText}>
+                            {cuposDisponibles} {cuposDisponibles === 1 ? 'cupo disponible' : 'cupos disponibles'}
+                        </Text>
+                    </View>
+                )}
 
                 {viaje.pasajeros && viaje.pasajeros.length > 0 && (
                     <View style={styles.pasajerosList}>
@@ -353,9 +441,8 @@ export default function ViajeActivo({ navigation, route }) {
                     <Ionicons name="information-circle" size={24} color="#2196F3" />
                     <Text style={styles.infoTexto}>
                         🤖 El viaje iniciará automáticamente cuando:{'\n\n'}
-                        ✅ Pasen 10 minutos después de crearlo{'\n'}
-                        ✅ Se llenen todos los cupos disponibles{'\n'}
-                        ✅ Pasen 2 minutos adicionales desde la hora de salida{'\n\n'}
+                        ✅ Pasen 10 minutos desde su creación{'\n'}
+                        ✅ Se llenen todos los cupos disponibles{'\n\n'}
                         ⚡ No necesitas hacer nada, el sistema lo hará por ti.
                     </Text>
                 </View>
@@ -472,6 +559,20 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#555',
         marginLeft: 12,
+    },
+    cuposDisponiblesBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#E8F5E9',
+        padding: 10,
+        borderRadius: 8,
+        marginTop: 10,
+    },
+    cuposDisponiblesText: {
+        fontSize: 14,
+        color: '#2E7D32',
+        fontWeight: '600',
+        marginLeft: 8,
     },
     pasajerosList: {
         marginTop: 15,
