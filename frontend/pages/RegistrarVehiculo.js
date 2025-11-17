@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput , Alert} from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import VehiculoService from '../services/VehiculoService';
+import VehiculoService from '../services/vehiculoService';
 import { useAuth } from '../context/AuthContext';
 
 
