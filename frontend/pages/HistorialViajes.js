@@ -1,25 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    FlatList,
-    TouchableOpacity,
-    RefreshControl,
-    ActivityIndicator,
-    Alert
-} from 'react-native';
+import {View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, Alert} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../context/AuthContext'; 
 import ViajeService from '../services/ViajeService';
 
-export default function HistorialViajes({ navigation, route }) {
+export default function HistorialViajes({ navigation }) {
+    
+    const { usuario } = useAuth();
+    
     const [viajes, setViajes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [filtro, setFiltro] = useState('TODOS');
     
-    // Obtener el usuario y su tipo desde los parámetros
-    const { usuario } = route.params;
     const esPasajero = usuario?.tipo === 'PASAJERO';
     const idUsuario = usuario?.id;
 
@@ -33,13 +26,13 @@ export default function HistorialViajes({ navigation, route }) {
         try {
             setLoading(true);
             
-            // Llamar al servicio según el tipo de usuario
+            
             const resultado = esPasajero 
                 ? await ViajeService.obtenerHistorialPasajero(idUsuario)
                 : await ViajeService.obtenerHistorialConductor(idUsuario);
 
             if (resultado.success) {
-                // Filtrar según el estado seleccionado
+                
                 let viajesFiltrados = resultado.data;
                 if (filtro !== 'TODOS') {
                     viajesFiltrados = resultado.data.filter(v => v.estadoViaje === filtro);
@@ -49,12 +42,12 @@ export default function HistorialViajes({ navigation, route }) {
                 Alert.alert('Error', resultado.error);
                 setViajes([]);
             }
-            
-            setLoading(false);
         } catch (error) {
+            console.error('Error:', error);
+            Alert.alert('Error', 'No se pudo cargar el historial');
+            setViajes([]);
+        } finally {
             setLoading(false);
-            Alert.alert('Error', 'No se pudo cargar el historial de viajes');
-            console.error(error);
         }
     };
 
@@ -63,6 +56,7 @@ export default function HistorialViajes({ navigation, route }) {
         await cargarHistorial();
         setRefreshing(false);
     }, [filtro, idUsuario]);
+
 
     const formatearFecha = (fechaISO) => {
         return ViajeService.formatearFecha(fechaISO);
