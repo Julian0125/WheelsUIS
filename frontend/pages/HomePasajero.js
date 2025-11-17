@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 
+
 export default function HomePasajero({ navigation }) {
   const { usuario } = useAuth();
   const nombre = usuario?.nombre || 'Usuario';

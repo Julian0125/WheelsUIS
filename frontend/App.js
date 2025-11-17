@@ -18,6 +18,7 @@ import CrearViaje from './pages/CrearViaje';
 import Perfil from './pages/Perfil';  
 import RegistrarVehiculo from './pages/RegistrarVehiculo';  
 import MisVehiculos from './pages/MisVehiculos';
+import HistorialViajes from './pages/HistorialViajes';
 
 const linking = {
     prefixes: ['http://localhost:8081', 'https://localhost:8081'],
@@ -32,6 +33,7 @@ const linking = {
             CrearViaje: 'CrearViaje',
             RegistrarVehiculo: 'RegistrarVehiculo',
             MisVehiculos: 'MisVehiculos',
+            HistorialViajes: 'HistorialViajes',
         },
     },
 };
@@ -120,7 +122,7 @@ function ConductorTabs() {
             />
             <Tab.Screen 
                 name="Historial Viajes" 
-                component={HistorialConductorScreen}
+                component={HistorialViajes}
                 options={{ tabBarLabel: 'Historial Viajes' }}
             />
             <Tab.Screen 
@@ -181,7 +183,7 @@ function PasajeroTabs() {
             />
             <Tab.Screen 
                 name="Historial Viajes" 
-                component={HistorialPasajeroScreen}
+                component={HistorialViajes}
                 options={{ tabBarLabel: 'Historial Viajes' }}
             />
             <Tab.Screen 
