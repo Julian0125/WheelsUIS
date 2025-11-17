@@ -5,7 +5,6 @@ import {
     StyleSheet,
     TouchableOpacity,
     ScrollView,
-    Alert,
     ActivityIndicator,
     RefreshControl
 } from 'react-native';
@@ -14,40 +13,35 @@ import { useAuth } from '../context/AuthContext';
 import ViajeService from '../services/ViajeService';
 import ViajePollingService from '../services/ViajePollingService';
 import { useFocusEffect } from '@react-navigation/native';
+import AlertService from "../utils/AlertService";
 
 export default function ViajeActivo({ navigation, route }) {
-    const { usuario } = useAuth();
+    const { usuario, logout } = useAuth();
     const [viaje, setViaje] = useState(route.params?.viaje || null);
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [iniciandoViaje, setIniciandoViaje] = useState(false);
     const [finalizandoViaje, setFinalizandoViaje] = useState(false);
     const [cancelandoViaje, setCancelandoViaje] = useState(false);
+    const [mensajeEstado, setMensajeEstado] = useState('');
 
     useEffect(() => {
-        console.log('🔍 ViajeActivo montado con viaje:', viaje?.id);
-
         if (viaje) {
             if (viaje.estadoViaje === 'CREADO') {
-                console.log('⏱️ Iniciando monitoreo del viaje:', viaje.id);
                 ViajePollingService.iniciarMonitoreo(viaje.id, handleViajeIniciado);
             }
         } else {
-            console.log('⚠️ No hay viaje en params, cargando desde AsyncStorage...');
             cargarViajeActual();
         }
 
         return () => {
-            console.log('🛑 Deteniendo monitoreo');
             ViajePollingService.detenerMonitoreo();
         };
     }, []);
 
     useFocusEffect(
         React.useCallback(() => {
-            if (viaje?.id) {
-                cargarViajeActual();
-            }
+            if (viaje?.id) cargarViajeActual();
         }, [viaje?.id])
     );
 
@@ -60,7 +54,6 @@ export default function ViajeActivo({ navigation, route }) {
                 setViaje(result.data);
 
                 if (result.data.estadoViaje === 'FINALIZADO' || result.data.estadoViaje === 'CANCELADO') {
-                    console.log('✅ Viaje finalizado/cancelado, volviendo al home');
                     navigation.replace('HomeConductor');
                     return;
                 }
@@ -69,12 +62,10 @@ export default function ViajeActivo({ navigation, route }) {
                     ViajePollingService.iniciarMonitoreo(result.data.id, handleViajeIniciado);
                 }
             } else {
-                console.log('❌ No hay viaje activo, volviendo al home');
                 navigation.replace('HomeConductor');
             }
         } catch (error) {
-            console.error('Error al cargar viaje:', error);
-            Alert.alert('Error', 'No se pudo cargar el viaje');
+            AlertService.alert('Error', 'No se pudo cargar el viaje');
         } finally {
             setLoading(false);
         }
@@ -87,151 +78,134 @@ export default function ViajeActivo({ navigation, route }) {
     };
 
     const handleViajeIniciado = (iniciado, mensaje) => {
+        setMensajeEstado(mensaje || '');
+
         if (iniciado) {
-            Alert.alert(
+            AlertService.alert(
                 '🚗 Viaje Iniciado',
-                'Tu viaje ha comenzado automáticamente. Los pasajeros han sido notificados.',
+                'Tu viaje ha comenzado automáticamente.',
                 [{ text: 'OK', onPress: () => cargarViajeActual() }]
             );
         }
     };
 
     const handleIniciarManual = async () => {
-        Alert.alert(
+        // ✅ VERIFICAR PRIMERO SI YA PUEDE INICIAR
+        const ahora = new Date();
+        const horaSalida = new Date(viaje.horaSalida);
+        const minutosTranscurridos = Math.floor((ahora - horaSalida) / 1000 / 60);
+
+        if (ahora < horaSalida && viaje.pasajeros.length < viaje.cuposMaximos) {
+            AlertService.alert(
+                'No se puede iniciar aún',
+                `El viaje iniciará automáticamente:\n\n` +
+                `• A la hora de salida (${formatearHora(horaSalida)})\n` +
+                `• Cuando se llenen los cupos (${viaje.pasajeros.length}/${viaje.cuposMaximos})\n` +
+                `• O 2 minutos después de la hora de salida\n\n` +
+                `Por favor espera un momento.`
+            );
+            return;
+        }
+
+        AlertService.confirm(
             'Iniciar Viaje',
-            '¿Estás seguro que deseas iniciar el viaje ahora?',
-            [
-                { text: 'Cancelar', style: 'cancel' },
-                {
-                    text: 'Iniciar',
-                    onPress: async () => {
-                        try {
-                            setIniciandoViaje(true);
-                            console.log('🚀 Iniciando viaje manualmente:', viaje.id);
+            '¿Seguro que desea iniciar este viaje ahora?',
+            async () => {
+                try {
+                    setIniciandoViaje(true);
+                    setMensajeEstado('Iniciando viaje...');
 
-                            const result = await ViajeService.iniciarViaje(viaje.id);
+                    const result = await ViajeService.iniciarViaje(viaje.id);
 
-                            if (result.success) {
-                                console.log('✅ Viaje iniciado exitosamente');
+                    if (result.success) {
+                        const viajeActualizado = { ...viaje, estadoViaje: 'ENCURSO' };
+                        setViaje(viajeActualizado);
+                        await ViajeService.guardarViajeActual(viajeActualizado);
+                        ViajePollingService.detenerMonitoreo();
 
-                                // Actualizar estado local
-                                const viajeActualizado = { ...viaje, estadoViaje: 'ENCURSO' };
-                                setViaje(viajeActualizado);
-                                await ViajeService.guardarViajeActual(viajeActualizado);
-
-                                // Detener monitoreo
-                                ViajePollingService.detenerMonitoreo();
-
-                                Alert.alert(
-                                    'Éxito',
-                                    'El viaje ha iniciado correctamente',
-                                    [{ text: 'OK' }]
-                                );
-                            } else {
-                                console.error('❌ Error al iniciar:', result.error);
-                                Alert.alert('Error', result.error || 'No se pudo iniciar el viaje');
-                            }
-                        } catch (error) {
-                            console.error('❌ Error:', error);
-                            Alert.alert('Error', 'No se pudo iniciar el viaje');
-                        } finally {
-                            setIniciandoViaje(false);
-                        }
+                        setMensajeEstado('¡Viaje iniciado exitosamente!');
+                        AlertService.alert('Éxito', 'El viaje ha iniciado correctamente');
+                    } else {
+                        setMensajeEstado('No se pudo iniciar el viaje');
+                        AlertService.alert(
+                            'No se puede iniciar',
+                            'El viaje aún no cumple las condiciones para iniciar. ' +
+                            'Espera a la hora de salida o a que se llenen los cupos.'
+                        );
                     }
+                } catch (error) {
+                    console.error('❌ Error al iniciar viaje:', error);
+                    setMensajeEstado('Error al iniciar viaje');
+                    AlertService.alert(
+                        'Error',
+                        'Hubo un problema al iniciar el viaje. Por favor intenta más tarde.'
+                    );
+                } finally {
+                    setIniciandoViaje(false);
                 }
-            ]
+            }
         );
     };
 
     const handleCancelarViaje = () => {
-        Alert.alert(
+        AlertService.confirm(
             'Cancelar Viaje',
-            '¿Estás seguro que deseas cancelar este viaje? Esta acción cambiará el estado a CANCELADO y notificará a los pasajeros.',
-            [
-                { text: 'No', style: 'cancel' },
-                {
-                    text: 'Sí, cancelar',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            setCancelandoViaje(true);
-                            console.log('🚫 Cancelando viaje:', viaje.id);
+            '¿Seguro que quiere cancelar este viaje?',
+            async () => {
+                try {
+                    setCancelandoViaje(true);
+                    const result = await ViajeService.cancelarViaje(
+                        viaje.id,
+                        usuario.id,
+                        'CONDUCTOR'
+                    );
 
-                            const result = await ViajeService.cancelarViaje(
-                                viaje.id,
-                                usuario.id,
-                                'CONDUCTOR'
-                            );
+                    if (result.success) {
+                        ViajePollingService.detenerMonitoreo();
+                        await ViajeService.limpiarViajeActual();
 
-                            if (result.success) {
-                                console.log('✅ Viaje cancelado exitosamente');
-
-                                // Detener monitoreo
-                                ViajePollingService.detenerMonitoreo();
-
-                                // Limpiar AsyncStorage
-                                await ViajeService.limpiarViajeActual();
-
-                                Alert.alert(
-                                    'Viaje Cancelado',
-                                    'El viaje ha sido cancelado correctamente. Los pasajeros han sido notificados.',
-                                    [{ text: 'OK', onPress: () => navigation.replace('HomeConductor') }]
-                                );
-                            } else {
-                                console.error('❌ Error al cancelar:', result.error);
-                                Alert.alert('Error', result.error || 'No se pudo cancelar el viaje');
-                            }
-                        } catch (error) {
-                            console.error('❌ Error:', error);
-                            Alert.alert('Error', 'No se pudo cancelar el viaje');
-                        } finally {
-                            setCancelandoViaje(false);
-                        }
+                        AlertService.alert(
+                            'Viaje Cancelado',
+                            'El viaje ha sido cancelado correctamente.',
+                            [{ text: 'OK', onPress: () => navigation.replace('HomeConductor') }]
+                        );
+                    } else {
+                        AlertService.alert('Error', result.error || 'No se pudo cancelar el viaje');
                     }
+                } catch {
+                    AlertService.alert('Error', 'No se pudo cancelar el viaje');
+                } finally {
+                    setCancelandoViaje(false);
                 }
-            ]
+            }
         );
     };
 
     const handleFinalizarViaje = () => {
-        Alert.alert(
+        AlertService.confirm(
             'Finalizar Viaje',
-            '¿Has llegado al destino? Esto finalizará el viaje.',
-            [
-                { text: 'No', style: 'cancel' },
-                {
-                    text: 'Sí, finalizar',
-                    onPress: async () => {
-                        try {
-                            setFinalizandoViaje(true);
-                            console.log('🏁 Finalizando viaje:', viaje.id);
+            '¿Has llegado al destino?',
+            async () => {
+                try {
+                    setFinalizandoViaje(true);
+                    const result = await ViajeService.finalizarViaje(viaje.id, usuario.id);
 
-                            const result = await ViajeService.finalizarViaje(viaje.id, usuario.id);
-
-                            if (result.success) {
-                                console.log('✅ Viaje finalizado exitosamente');
-
-                                // Limpiar AsyncStorage
-                                await ViajeService.limpiarViajeActual();
-
-                                Alert.alert(
-                                    '🏁 Viaje Finalizado',
-                                    '¡Has completado el viaje exitosamente!',
-                                    [{ text: 'OK', onPress: () => navigation.replace('HomeConductor') }]
-                                );
-                            } else {
-                                console.error('❌ Error al finalizar:', result.error);
-                                Alert.alert('Error', result.error || 'No se pudo finalizar el viaje');
-                            }
-                        } catch (error) {
-                            console.error('❌ Error:', error);
-                            Alert.alert('Error', 'No se pudo finalizar el viaje');
-                        } finally {
-                            setFinalizandoViaje(false);
-                        }
+                    if (result.success) {
+                        await ViajeService.limpiarViajeActual();
+                        AlertService.alert(
+                            '🏁 Viaje Finalizado',
+                            '¡Has completado el viaje!',
+                            [{ text: 'OK', onPress: () => navigation.replace('HomeConductor') }]
+                        );
+                    } else {
+                        AlertService.alert('Error', result.error || 'No se pudo finalizar el viaje');
                     }
+                } catch {
+                    AlertService.alert('Error', 'No se pudo finalizar el viaje');
+                } finally {
+                    setFinalizandoViaje(false);
                 }
-            ]
+            }
         );
     };
 
@@ -246,6 +220,14 @@ export default function ViajeActivo({ navigation, route }) {
             year: 'numeric',
             month: 'long',
             day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
+    const formatearHora = (fecha) => {
+        if (!fecha) return '';
+        return new Date(fecha).toLocaleTimeString('es-CO', {
             hour: '2-digit',
             minute: '2-digit'
         });
@@ -297,6 +279,7 @@ export default function ViajeActivo({ navigation, route }) {
                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#207636']} />
             }
         >
+            {/* HEADER */}
             <View style={styles.header}>
                 <TouchableOpacity
                     style={styles.botonAtras}
@@ -304,14 +287,43 @@ export default function ViajeActivo({ navigation, route }) {
                 >
                     <Ionicons name="arrow-back" size={28} color="#fff" />
                 </TouchableOpacity>
+
                 <Text style={styles.headerTitle}>Viaje Activo</Text>
+
+                <TouchableOpacity
+                    style={styles.logoutButton}
+                    onPress={() => {
+                        AlertService.confirm(
+                            "Cerrar sesión",
+                            "¿Seguro que desea salir?",
+                            async () => {
+                                ViajePollingService.detenerMonitoreo();
+                                await ViajeService.limpiarViajeActual();
+                                logout();
+                                navigation.replace("Login");
+                            }
+                        );
+                    }}
+                >
+                    <Ionicons name="log-out-outline" size={26} color="#fff" />
+                </TouchableOpacity>
             </View>
 
+            {/* ESTADO */}
             <View style={[styles.estadoBadge, { backgroundColor: estadoBadge.color }]}>
                 <Ionicons name={estadoBadge.icon} size={24} color="#fff" />
                 <Text style={styles.estadoTexto}>{estadoBadge.texto}</Text>
             </View>
 
+            {/* MENSAJE DE ESTADO DEL MONITOREO */}
+            {mensajeEstado !== '' && viaje.estadoViaje === 'CREADO' && (
+                <View style={styles.mensajeEstadoBox}>
+                    <Ionicons name="information-circle" size={20} color="#2196F3" />
+                    <Text style={styles.mensajeEstadoTexto}>{mensajeEstado}</Text>
+                </View>
+            )}
+
+            {/* RUTA */}
             <View style={styles.card}>
                 <Text style={styles.cardTitle}>📍 Ruta del Viaje</Text>
 
@@ -339,6 +351,7 @@ export default function ViajeActivo({ navigation, route }) {
                 </View>
             </View>
 
+            {/* DETALLES */}
             <View style={styles.card}>
                 <Text style={styles.cardTitle}>📋 Detalles</Text>
 
@@ -369,6 +382,7 @@ export default function ViajeActivo({ navigation, route }) {
                 )}
             </View>
 
+            {/* BOTONES DE ACCIÓN */}
             <View style={styles.botonesContainer}>
                 {viaje.estadoViaje === 'CREADO' && (
                     <TouchableOpacity
@@ -432,16 +446,15 @@ export default function ViajeActivo({ navigation, route }) {
                 )}
             </View>
 
+            {/* INFO AUTOMÁTICA */}
             {viaje.estadoViaje === 'CREADO' && (
                 <View style={styles.infoBox}>
                     <Ionicons name="information-circle" size={24} color="#2196F3" />
                     <Text style={styles.infoTexto}>
-                        El viaje iniciará automáticamente 2 minutos después de la hora de salida ({' '}
-                        {new Date(viaje.horaSalida).toLocaleTimeString('es-CO', {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                        })}
-                        {' '}) o cuando se llenen los cupos. También puedes iniciarlo manualmente.
+                        El viaje iniciará automáticamente:{'\n\n'}
+                        • A la hora de salida programada{'\n'}
+                        • Cuando se llenen todos los cupos{'\n'}
+                        • O 2 minutos después de la hora de salida
                     </Text>
                 </View>
             )}
@@ -453,30 +466,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#f5f5f5',
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#f5f5f5',
-    },
-    loadingText: {
-        marginTop: 10,
-        fontSize: 16,
-        color: '#666',
-    },
-    emptyContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
-        backgroundColor: '#f5f5f5',
-    },
-    emptyText: {
-        fontSize: 18,
-        color: '#999',
-        marginTop: 20,
-        marginBottom: 30,
     },
     header: {
         backgroundColor: '#207636',
@@ -493,6 +482,10 @@ const styles = StyleSheet.create({
         fontSize: 24,
         fontWeight: 'bold',
         color: '#fff',
+        flex: 1,
+    },
+    logoutButton: {
+        paddingHorizontal: 10,
     },
     estadoBadge: {
         flexDirection: 'row',
@@ -508,6 +501,23 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
         marginLeft: 10,
+    },
+    mensajeEstadoBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#E3F2FD',
+        marginHorizontal: 20,
+        marginTop: 10,
+        padding: 12,
+        borderRadius: 8,
+        borderLeftWidth: 3,
+        borderLeftColor: '#2196F3',
+    },
+    mensajeEstadoTexto: {
+        flex: 1,
+        marginLeft: 10,
+        fontSize: 13,
+        color: '#1976D2',
     },
     card: {
         backgroundColor: '#fff',
@@ -541,7 +551,6 @@ const styles = StyleSheet.create({
     ubicacionLabel: {
         fontSize: 12,
         color: '#999',
-        marginBottom: 2,
     },
     ubicacionTexto: {
         fontSize: 18,
@@ -567,7 +576,6 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#555',
         marginLeft: 12,
-        flex: 1,
     },
     pasajerosList: {
         marginTop: 15,
@@ -637,6 +645,30 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#1976D2',
         lineHeight: 20,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#f5f5f5',
+    },
+    loadingText: {
+        marginTop: 10,
+        fontSize: 16,
+        color: '#666',
+    },
+    emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+        backgroundColor: '#f5f5f5',
+    },
+    emptyText: {
+        fontSize: 18,
+        color: '#999',
+        marginTop: 20,
+        marginBottom: 30,
     },
     botonVolver: {
         backgroundColor: '#207636',

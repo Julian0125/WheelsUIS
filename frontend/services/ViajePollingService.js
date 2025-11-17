@@ -4,6 +4,8 @@ class ViajePollingServiceClass {
     constructor() {
         this.intervalId = null;
         this.viajeActualId = null;
+        this.intentosFallidos = 0;
+        this.maxIntentosAntesDePausar = 3;
     }
 
     iniciarMonitoreo(idViaje, onViajeIniciado) {
@@ -15,10 +17,13 @@ class ViajePollingServiceClass {
         this.detenerMonitoreo();
 
         this.viajeActualId = idViaje;
+        this.intentosFallidos = 0;
         console.log('🔄 Iniciando monitoreo del viaje', idViaje);
 
+        // Primera verificación inmediata
         this.verificarEstadoViaje(idViaje, onViajeIniciado);
 
+        // Verificación periódica cada 15 segundos
         this.intervalId = setInterval(() => {
             this.verificarEstadoViaje(idViaje, onViajeIniciado);
         }, 15000);
@@ -42,6 +47,9 @@ class ViajePollingServiceClass {
                 const mensaje = await response.text();
                 console.log('📨 Respuesta del servidor:', mensaje);
 
+                // Resetear contador de intentos fallidos
+                this.intentosFallidos = 0;
+
                 if (mensaje.includes('ha iniciado')) {
                     console.log('✅ ¡Viaje iniciado automáticamente!');
                     callback && callback(true, mensaje);
@@ -50,24 +58,38 @@ class ViajePollingServiceClass {
                     console.log('⏳ Viaje aún no puede iniciar:', mensaje);
                     callback && callback(false, mensaje);
                 }
-            } else if (response.status === 500) {
-                const errorText = await response.text();
-                console.error('❌ Error 500 del servidor:', errorText);
+            } else if (response.status === 500 || response.status === 400) {
+                // ⚠️ Error del servidor - NO detener el monitoreo
+                this.intentosFallidos++;
 
-                // ⚠️ NO detener el monitoreo, seguir intentando
-                console.log('⏳ Reintentando en 15 segundos...');
-                callback && callback(false, 'Error del servidor, reintentando...');
-            } else if (response.status === 400) {
-                const error = await response.text();
-                console.log('⏳ No se puede iniciar aún:', error);
-                callback && callback(false, error);
+                const errorText = await response.text();
+                console.log(`⚠️ Error ${response.status} del servidor:`, errorText);
+                console.log(`⏳ Intento fallido ${this.intentosFallidos}/${this.maxIntentosAntesDePausar}`);
+
+                // Si hay muchos errores consecutivos, aumentar el intervalo
+                if (this.intentosFallidos >= this.maxIntentosAntesDePausar) {
+                    console.log('⏸️ Pausando verificaciones frecuentes debido a errores...');
+                    // Aumentar intervalo a 30 segundos después de varios errores
+                    this.detenerMonitoreo();
+                    this.intervalId = setInterval(() => {
+                        this.verificarEstadoViaje(idViaje, callback);
+                    }, 30000);
+                }
+
+                callback && callback(false, 'El viaje aún no puede iniciar. Verificando automáticamente...');
             } else {
                 const error = await response.text();
-                console.log('❌ Error al verificar viaje:', error);
+                console.log('❌ Error inesperado:', error);
+                callback && callback(false, 'Error al verificar viaje');
             }
         } catch (error) {
             console.error('❌ Error en verificarEstadoViaje:', error);
+            this.intentosFallidos++;
+
             // No detener el monitoreo por errores de red
+            console.log(`⏳ Error de red. Reintentando... (${this.intentosFallidos}/${this.maxIntentosAntesDePausar})`);
+
+            callback && callback(false, 'Error de conexión. Reintentando...');
         }
     }
 
@@ -76,6 +98,7 @@ class ViajePollingServiceClass {
             clearInterval(this.intervalId);
             this.intervalId = null;
             this.viajeActualId = null;
+            this.intentosFallidos = 0;
             console.log('⏹️ Monitoreo detenido');
         }
     }
@@ -86,6 +109,10 @@ class ViajePollingServiceClass {
 
     obtenerViajeActual() {
         return this.viajeActualId;
+    }
+
+    reiniciarContadorErrores() {
+        this.intentosFallidos = 0;
     }
 }
 
