@@ -1,7 +1,133 @@
 import { HTTP_BASE_URL } from './urls';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ViajeService = {
-    // Crear viaje predefinido
+    // ✅ Guardar viaje en AsyncStorage
+    guardarViajeActual: async (viaje) => {
+        try {
+            await AsyncStorage.setItem('viajeActual', JSON.stringify(viaje));
+            console.log('✅ Viaje guardado en AsyncStorage:', viaje.id);
+            return true;
+        } catch (error) {
+            console.error('Error al guardar viaje:', error);
+            return false;
+        }
+    },
+
+    // ✅ Obtener viaje desde AsyncStorage
+    obtenerViajeDesdeStorage: async () => {
+        try {
+            const viajeGuardado = await AsyncStorage.getItem('viajeActual');
+            if (viajeGuardado) {
+                const viaje = JSON.parse(viajeGuardado);
+                console.log('✅ Viaje recuperado de AsyncStorage:', viaje.id);
+                return viaje;
+            }
+            return null;
+        } catch (error) {
+            console.error('Error al obtener viaje:', error);
+            return null;
+        }
+    },
+
+    // ✅ Limpiar viaje de AsyncStorage
+    limpiarViajeActual: async () => {
+        try {
+            await AsyncStorage.removeItem('viajeActual');
+            console.log('✅ Viaje limpiado de AsyncStorage');
+            return true;
+        } catch (error) {
+            console.error('Error al limpiar viaje:', error);
+            return false;
+        }
+    },
+
+    // ✅ CORREGIDO: Buscar viaje activo consultando DIRECTAMENTE al conductor
+    obtenerViajeActualConductor: async (idConductor) => {
+        console.log('🔍 Buscando viaje activo para conductor:', idConductor);
+
+        try {
+            // Primero verificar AsyncStorage
+            const viajeLocal = await ViajeService.obtenerViajeDesdeStorage();
+
+            if (viajeLocal && (viajeLocal.estadoViaje === 'CREADO' || viajeLocal.estadoViaje === 'ENCURSO')) {
+                console.log('✅ Viaje activo en AsyncStorage:', viajeLocal.id);
+                return { success: true, data: viajeLocal };
+            }
+
+            // ✅ NUEVO: Consultar directamente al conductor para ver su viajeActual
+            console.log('🌐 Consultando conductor en el backend...');
+            const conductorResponse = await fetch(
+                `${HTTP_BASE_URL}/api/conductor/listar`,
+                {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                }
+            );
+
+            if (conductorResponse.ok) {
+                const conductores = await conductorResponse.json();
+                const conductor = conductores.find(c => c.id === idConductor);
+
+                if (conductor && conductor.viajeActual) {
+                    console.log('✅ Viaje actual encontrado en conductor:', conductor.viajeActual);
+
+                    // Verificar que el viaje esté activo
+                    if (conductor.viajeActual.estadoViaje === 'CREADO' ||
+                        conductor.viajeActual.estadoViaje === 'ENCURSO') {
+                        await ViajeService.guardarViajeActual(conductor.viajeActual);
+                        return { success: true, data: conductor.viajeActual };
+                    }
+                }
+            }
+
+            // Si no encontró en conductor, intentar con historial
+            console.log('🌐 Buscando en historial de viajes...');
+            const response = await fetch(
+                `${HTTP_BASE_URL}/viaje/conductor/${idConductor}/historial`,
+                {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                }
+            );
+
+            if (response.ok) {
+                const viajes = await response.json();
+                console.log('📦 Viajes obtenidos del backend:', viajes.length);
+
+                const viajesValidos = viajes.filter(v => v.estadoViaje !== null && v.estadoViaje !== undefined);
+
+                console.log('🔍 Estados de todos los viajes:');
+                viajesValidos.forEach((v, i) => {
+                    console.log(`  Viaje ${i + 1} (ID: ${v.id}): estado="${v.estadoViaje}"`);
+                });
+
+                const viajeActivo = viajesValidos.find(v =>
+                    v.estadoViaje === 'CREADO' || v.estadoViaje === 'ENCURSO'
+                );
+
+                if (viajeActivo) {
+                    console.log('✅ Viaje activo encontrado en historial:', viajeActivo.id);
+                    await ViajeService.guardarViajeActual(viajeActivo);
+                    return { success: true, data: viajeActivo };
+                }
+            }
+
+            console.log('ℹ️ No hay viajes activos');
+            await ViajeService.limpiarViajeActual();
+            return { success: false, error: 'No hay viaje activo' };
+
+        } catch (error) {
+            console.error('❌ Error al obtener viaje actual:', error);
+            return { success: false, error: 'Error al obtener viaje actual' };
+        }
+    },
+
+    // ✅ Crear viaje predefinido
     crearViajePredefinido: async (idConductor, tipoViaje) => {
         try {
             const response = await fetch(
@@ -16,6 +142,7 @@ const ViajeService = {
 
             if (response.ok) {
                 const viaje = await response.json();
+                await ViajeService.guardarViajeActual(viaje);
                 return { success: true, data: viaje };
             } else {
                 const error = await response.text();
@@ -27,7 +154,7 @@ const ViajeService = {
         }
     },
 
-    // Iniciar viaje manualmente
+    // ✅ Iniciar viaje manualmente
     iniciarViaje: async (idViaje) => {
         try {
             const response = await fetch(
@@ -42,6 +169,13 @@ const ViajeService = {
 
             if (response.ok) {
                 const mensaje = await response.text();
+
+                const viajeActual = await ViajeService.obtenerViajeDesdeStorage();
+                if (viajeActual && viajeActual.id === idViaje) {
+                    viajeActual.estadoViaje = 'ENCURSO';
+                    await ViajeService.guardarViajeActual(viajeActual);
+                }
+
                 return { success: true, message: mensaje };
             } else {
                 const error = await response.text();
@@ -93,43 +227,34 @@ const ViajeService = {
         }
     },
 
-    // Obtener viaje actual del conductor
-    obtenerViajeActualConductor: async (idConductor) => {
-        try {
-            const response = await fetch(
-                `${HTTP_BASE_URL}/viaje/conductor/${idConductor}/actual`
-            );
-
-            if (response.ok) {
-                const viaje = await response.json();
-                return { success: true, data: viaje };
-            } else {
-                const error = await response.text();
-                return { success: false, error };
-            }
-        } catch (error) {
-            console.error('Error al obtener viaje actual:', error);
-            return { success: false, error: 'No se pudo conectar con el servidor' };
-        }
-    },
-
     // Obtener viaje actual del pasajero
     obtenerViajeActualPasajero: async (idPasajero) => {
         try {
+            const viajeLocal = await ViajeService.obtenerViajeDesdeStorage();
+
+            if (viajeLocal && viajeLocal.estadoViaje === 'ENCURSO') {
+                return { success: true, data: viajeLocal };
+            }
+
             const response = await fetch(
-                `${HTTP_BASE_URL}/viaje/pasajero/${idPasajero}/actual`
+                `${HTTP_BASE_URL}/viaje/pasajero/${idPasajero}/historial`
             );
 
             if (response.ok) {
-                const viaje = await response.json();
-                return { success: true, data: viaje };
-            } else {
-                const error = await response.text();
-                return { success: false, error };
+                const viajes = await response.json();
+                const viajeActivo = viajes.find(v => v.estadoViaje === 'ENCURSO');
+
+                if (viajeActivo) {
+                    await ViajeService.guardarViajeActual(viajeActivo);
+                    return { success: true, data: viajeActivo };
+                }
             }
+
+            await ViajeService.limpiarViajeActual();
+            return { success: false, error: 'No hay viaje activo' };
         } catch (error) {
             console.error('Error al obtener viaje actual:', error);
-            return { success: false, error: 'No se pudo conectar con el servidor' };
+            return { success: false, error: 'Error al obtener viaje actual' };
         }
     },
 
@@ -178,6 +303,7 @@ const ViajeService = {
 
             if (response.ok) {
                 const data = await response.json();
+                await ViajeService.limpiarViajeActual();
                 return { success: true, data };
             } else {
                 const error = await response.json();
@@ -204,6 +330,7 @@ const ViajeService = {
 
             if (response.ok) {
                 const viaje = await response.json();
+                await ViajeService.limpiarViajeActual();
                 return { success: true, data: viaje };
             } else {
                 const error = await response.text();
