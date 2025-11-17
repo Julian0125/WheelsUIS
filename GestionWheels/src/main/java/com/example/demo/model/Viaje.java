@@ -39,7 +39,7 @@ public class Viaje {
 	private int id;
     @ManyToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "conductor_id")//definiendo la clave foranea
-    @JsonIgnoreProperties({ "viajes"})// ignora la lista de viajes al serializar el conductor
+    @JsonIgnoreProperties({"viajeActual", "viajes"})// ignora la lista de viajes al serializar el conductor
 	private Conductor conductor;
     
     

@@ -212,7 +212,7 @@ public class ViajeService {
 	 }
 
 	 public Viaje obtenerViajeActivoPorConductor(int idConductor) {
-    return viajeRepository.findByConductorIdAndEstadoViaje(idConductor, EstadoViaje.ENCURSO)
+    return viajeRepository.findByConductorIdAndEstadoViaje(idConductor, EstadoViaje.CREADO)
             .orElseThrow(() -> new IllegalArgumentException("No hay viaje activo para este conductor"));
 
 
