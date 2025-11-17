@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import ViajePollingService from '../services/ViajePollingService';
+import ViajeService from '../services/ViajeService';
 
 export default function CrearViaje({ navigation }) {
     const [origen, setOrigen] = useState('');
@@ -26,26 +26,18 @@ export default function CrearViaje({ navigation }) {
     const [rutasDisponibles, setRutasDisponibles] = useState([]);
     const [cargandoRutas, setCargandoRutas] = useState(true);
     const [horaSalida, setHoraSalida] = useState(null);
+    const [creandoViaje, setCreandoViaje] = useState(false);
 
-    // Estados para los modals
     const [modalOrigenVisible, setModalOrigenVisible] = useState(false);
     const [modalDestinoVisible, setModalDestinoVisible] = useState(false);
 
-    // Calcular hora de salida (10 minutos después)
+    // Hora de salida: 2 minutos después
     useEffect(() => {
         const ahora = new Date();
-        const salidaEnDiezMinutos = new Date(ahora.getTime() + 10 * 60000);
-        setHoraSalida(salidaEnDiezMinutos);
+        const salidaEnDosMinutos = new Date(ahora.getTime() + 2 * 60000);
+        setHoraSalida(salidaEnDosMinutos);
     }, []);
 
-    // Limpiar monitoreo al desmontar el componente
-    useEffect(() => {
-        return () => {
-            ViajePollingService.detenerMonitoreo();
-        };
-    }, []);
-
-    // Formatear fecha
     const formatearFecha = (fecha) => {
         if (!fecha) return '';
         const opciones = {
@@ -57,7 +49,6 @@ export default function CrearViaje({ navigation }) {
         return fecha.toLocaleDateString('es-CO', opciones);
     };
 
-    // Formatear hora
     const formatearHora = (fecha) => {
         if (!fecha) return '';
         return fecha.toLocaleTimeString('es-CO', {
@@ -66,42 +57,31 @@ export default function CrearViaje({ navigation }) {
         });
     };
 
-    // Cargar usuario logueado Y su vehículo desde AsyncStorage
     useEffect(() => {
         const cargarUsuario = async () => {
             try {
                 const usuarioGuardado = await AsyncStorage.getItem('usuario');
-                console.log('📦 Usuario en AsyncStorage:', usuarioGuardado);
 
                 if (usuarioGuardado) {
                     const usuario = JSON.parse(usuarioGuardado);
-                    console.log('👤 Usuario parseado:', usuario);
 
                     if (usuario.tipo === 'CONDUCTOR') {
                         setConductorId(usuario.id);
 
-
+                        // ✅ Solo cargar vehículo, sin verificar viajes
                         if (usuario.vehiculo) {
                             setVehiculo(usuario.vehiculo);
-                            console.log('🚗 Vehículo del usuario:', usuario.vehiculo);
-
                             const tipo = (usuario.vehiculo.tipo || '').toString().toUpperCase().trim();
-                            console.log('🔍 Tipo de vehículo detectado:', tipo);
                             setTipoVehiculo(tipo);
 
                             if (tipo === 'MOTO') {
-                                console.log('🏍️ Configurado como MOTO: 1 cupo');
                                 setCupos(1);
                                 setMaxCupos(1);
                             } else if (tipo === 'COCHE' || tipo === 'CARRO') {
-                                console.log('🚗 Configurado como COCHE: hasta 4 cupos');
                                 setCupos(1);
                                 setMaxCupos(4);
-                            } else {
-                                console.log('⚠️ Tipo no reconocido:', tipo);
                             }
                         } else {
-                            console.log('❌ No hay vehículo en el usuario');
                             Alert.alert('Error', 'No tienes un vehículo registrado.');
                         }
                     } else {
@@ -118,7 +98,6 @@ export default function CrearViaje({ navigation }) {
         cargarUsuario();
     }, []);
 
-    // Obtener rutas predefinidas del backend
     useEffect(() => {
         if (!conductorId) return;
 
@@ -129,10 +108,8 @@ export default function CrearViaje({ navigation }) {
 
                 if (response.ok) {
                     const data = await response.json();
-                    console.log('✅ Rutas obtenidas del backend:', data);
                     setRutasDisponibles(data);
                 } else {
-                    console.log('⚠️ No se pudieron obtener las rutas, usando fallback');
                     usarRutasPredefinidas();
                 }
             } catch (error) {
@@ -155,7 +132,6 @@ export default function CrearViaje({ navigation }) {
         obtenerRutas();
     }, [conductorId, maxCupos]);
 
-    // Control de cupos
     const aumentarCupos = () => {
         if (cupos < maxCupos) setCupos(cupos + 1);
     };
@@ -164,51 +140,44 @@ export default function CrearViaje({ navigation }) {
         if (cupos > 1) setCupos(cupos - 1);
     };
 
-    // Callback cuando el viaje inicia automáticamente
-    const onViajeIniciado = (iniciado, mensaje) => {
-        if (iniciado) {
-            Alert.alert(
-                '🚗 Viaje Iniciado',
-                'Tu viaje ha iniciado automáticamente. Los pasajeros han sido notificados.',
-                [
-                    {
-                        text: 'OK',
-                        onPress: () => {
-                            // Opcional: navegar a otra pantalla
-                            // navigation.navigate('ViajeEnCurso');
-                        }
-                    }
-                ]
-            );
-        }
-    };
+    // ✅ FUNCIÓN PARA MAPEAR DESTINO A TIPO DE VIAJE
+    const obtenerTipoViaje = (origen, destino) => {
+        const origenLower = origen.toLowerCase().trim();
+        const destinoLower = destino.toLowerCase().trim();
 
-    // ✅ FUNCIÓN SIMPLIFICADA PARA DETERMINAR TIPO DE VIAJE
-    const determinarTipoViaje = (origen, destino) => {
-        const origenLower = origen.toLowerCase();
-        const destinoLower = destino.toLowerCase();
+        console.log('📍 Analizando ruta:');
+        console.log('   Origen:', origen, '→', origenLower);
+        console.log('   Destino:', destino, '→', destinoLower);
 
-        console.log('🔍 Analizando ruta:', { origen: origenLower, destino: destinoLower });
-
-        // Cualquier ruta que involucre Mutis
-        if (origenLower.includes('mutis') || destinoLower.includes('mutis')) {
-            console.log('✅ Detectado: Ruta Mutis (tipo: mutis)');
+        // ✅ Universidad → Barrio Mutis
+        if (origenLower.includes('universidad') && destinoLower.includes('mutis')) {
+            console.log('✅ Tipo detectado: mutis (Universidad → Barrio Mutis)');
             return 'mutis';
         }
 
-        // Cualquier ruta que involucre Cumbre
-        if (origenLower.includes('cumbre') || destinoLower.includes('cumbre')) {
-            console.log('✅ Detectado: Ruta Cumbre (tipo: cumbre)');
+        // ✅ Universidad → Barrio La Cumbre
+        if (origenLower.includes('universidad') && destinoLower.includes('cumbre')) {
+            console.log('✅ Tipo detectado: cumbre (Universidad → Barrio La Cumbre)');
             return 'cumbre';
         }
 
-        console.log('❌ No se pudo determinar el tipo de viaje');
+        // ✅ Barrio Mutis → Universidad (requiere modificar backend primero)
+        if (origenLower.includes('mutis') && destinoLower.includes('universidad')) {
+            console.log('✅ Tipo detectado: mutisu (Barrio Mutis → Universidad)');
+            return 'mutisu';
+        }
+
+        // ✅ Barrio La Cumbre → Universidad (requiere modificar backend primero)
+        if (origenLower.includes('cumbre') && destinoLower.includes('universidad')) {
+            console.log('✅ Tipo detectado: cumbreu (Barrio La Cumbre → Universidad)');
+            return 'cumbreu';
+        }
+
+        console.error('❌ No se pudo determinar el tipo de viaje');
         return null;
     };
 
-    // ✅ CREAR VIAJE - VERSIÓN SIMPLIFICADA SIN VERIFICACIÓN PREVIA
     const crearViaje = async () => {
-        // Validaciones básicas
         if (!origen || !destino) {
             Alert.alert('Error', 'Por favor selecciona origen y destino.');
             return;
@@ -219,136 +188,71 @@ export default function CrearViaje({ navigation }) {
             return;
         }
 
-        if (!conductorId) {
-            Alert.alert('Error', 'No se pudo identificar el conductor.');
-            return;
-        }
-
         try {
-            // Determinar tipo de viaje
-            const tipoViaje = determinarTipoViaje(origen, destino);
+            setCreandoViaje(true);
+
+            // ✅ Verificar nuevamente que no haya viaje activo
+            const viajeActivoCheck = await ViajeService.obtenerViajeActualConductor(conductorId);
+            if (viajeActivoCheck.success && viajeActivoCheck.data) {
+                const estado = viajeActivoCheck.data.estadoViaje;
+                if (estado === 'CREADO' || estado === 'ENCURSO') {
+                    Alert.alert(
+                        'Viaje Activo',
+                        'Ya tienes un viaje activo. Finalízalo antes de crear uno nuevo.',
+                        [{ text: 'OK', onPress: () => navigation.replace('ViajeActivo', { viaje: viajeActivoCheck.data }) }]
+                    );
+                    setCreandoViaje(false);
+                    return;
+                }
+            }
+
+            // ✅ Obtener tipo de viaje usando la función de mapeo
+            const tipoViaje = obtenerTipoViaje(origen, destino);
 
             if (!tipoViaje) {
                 Alert.alert(
-                    'Error',
-                    `No se pudo determinar el tipo de viaje para la ruta:\n\n${origen} → ${destino}\n\nPor favor, selecciona una ruta válida.`
+                    'Ruta no disponible',
+                    `Actualmente solo están disponibles las rutas:\n\n` +
+                    `✅ Universidad → Barrio Mutis\n` +
+                    `✅ Universidad → Barrio La Cumbre\n\n` +
+                    `Las rutas inversas (Barrios → Universidad) requieren una actualización del backend.\n\n` +
+                    `Por favor, contacta al administrador para habilitar estas rutas.`,
+                    [{ text: 'Entendido' }]
                 );
+                setCreandoViaje(false);
                 return;
             }
 
-            console.log('🚀 Iniciando creación de viaje con:');
-            console.log('   - Conductor ID:', conductorId);
-            console.log('   - Tipo de viaje:', tipoViaje);
-            console.log('   - Origen:', origen);
-            console.log('   - Destino:', destino);
-            console.log('   - Cupos:', cupos);
-            console.log('   - Vehículo:', vehiculo.placa, '-', vehiculo.tipo);
+            console.log('🚀 Creando viaje tipo:', tipoViaje, 'para conductor:', conductorId);
+            console.log('📍 Ruta seleccionada:', origen, '→', destino);
 
-            const url = `https://wheelsuis.onrender.com/viaje/crear/${tipoViaje}?idConductor=${conductorId}`;
-            console.log('📡 URL completa:', url);
-
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
+            const response = await fetch(
+                `https://wheelsuis.onrender.com/viaje/crear/${tipoViaje}?idConductor=${conductorId}`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
                 }
-            });
-
-            console.log('📡 Response status:', response.status);
+            );
 
             if (response.ok) {
                 const viaje = await response.json();
                 console.log('✅ Viaje creado exitosamente:', viaje);
 
-                // Iniciar monitoreo del viaje
-                ViajePollingService.iniciarMonitoreo(viaje.id, onViajeIniciado);
+                await ViajeService.guardarViajeActual(viaje);
+                navigation.replace('ViajeActivo', { viaje });
 
-                Alert.alert(
-                    '✅ Éxito',
-                    `Viaje creado correctamente\n\nRuta: ${origen} → ${destino}\nSalida: ${formatearHora(horaSalida)}\nCupos: ${cupos}\n\n🔔 El viaje iniciará automáticamente en 10 minutos o cuando se llenen los cupos.`,
-                    [
-                        {
-                            text: 'OK',
-                            onPress: () => {
-                                // Resetear formulario
-                                setOrigen('');
-                                setDestino('');
-                                setCupos(tipoVehiculo === 'MOTO' ? 1 : 1);
-
-                                // Recalcular nueva hora
-                                const ahora = new Date();
-                                const nuevaSalida = new Date(ahora.getTime() + 10 * 60000);
-                                setHoraSalida(nuevaSalida);
-
-                                // Navegar de vuelta
-                                navigation.goBack();
-                            }
-                        }
-                    ]
-                );
             } else {
-                // Manejo de errores
-                const contentType = response.headers.get('content-type');
-                let errorData = null;
-
-                try {
-                    if (contentType && contentType.includes('application/json')) {
-                        errorData = await response.json();
-                        console.log('❌ Error JSON completo:', JSON.stringify(errorData, null, 2));
-                    } else {
-                        const errorText = await response.text();
-                        console.log('❌ Error de texto:', errorText);
-                        errorData = { message: errorText };
-                    }
-                } catch (parseError) {
-                    console.error('❌ Error al parsear respuesta:', parseError);
-                }
-
-                // ⚠️ MENSAJE ESPECÍFICO PARA ERROR 500
-                if (response.status === 500) {
-                    Alert.alert(
-                        '⚠️ No se pudo crear el viaje',
-                        'El servidor encontró un problema al procesar tu solicitud.\n\n' +
-                        '🔍 Posibles causas:\n' +
-                        '• Ya tienes un viaje activo en el sistema\n' +
-                        '• Hay un problema con el servidor\n\n' +
-                        '💡 Soluciones:\n' +
-                        '1. Cierra sesión y vuelve a iniciar\n' +
-                        '2. Si el problema persiste, contacta al administrador\n' +
-                        '3. Intenta crear el viaje desde la app móvil',
-                        [
-                            {
-                                text: 'Cerrar sesión',
-                                style: 'destructive',
-                                onPress: async () => {
-                                    // Aquí podrías llamar a tu función de logout
-                                    // await logout();
-                                    navigation.reset({
-                                        index: 0,
-                                        routes: [{ name: 'Login' }],
-                                    });
-                                }
-                            },
-                            {
-                                text: 'Volver',
-                                style: 'cancel'
-                            }
-                        ]
-                    );
-                } else if (response.status === 400) {
-                    const errorMsg = errorData?.message || errorData?.error || 'Datos inválidos';
-                    Alert.alert('Error', errorMsg);
-                } else {
-                    const errorMsg = errorData?.message || `Error ${response.status}`;
-                    Alert.alert('Error al Crear Viaje', errorMsg);
-                }
+                const error = await response.text();
+                console.error('❌ Error del servidor:', error);
+                Alert.alert('Error', error || 'No se pudo crear el viaje');
             }
         } catch (error) {
-            console.error('❌ Error crítico:', error);
-            Alert.alert(
-                'Error de Conexión',
-                'No se pudo conectar con el servidor. Verifica tu conexión a internet.'
-            );
+            console.error('❌ Error al crear viaje:', error);
+            Alert.alert('Error', 'No se pudo crear el viaje. Intenta nuevamente.');
+        } finally {
+            setCreandoViaje(false);
         }
     };
 
@@ -357,7 +261,6 @@ export default function CrearViaje({ navigation }) {
         ? rutasDisponibles.filter(r => r.origen === origen).map(r => r.destino)
         : [];
 
-    // Componente de selección con modal
     const SelectorModal = ({ visible, onClose, options, onSelect, title, selectedValue }) => (
         <Modal
             animationType="slide"
@@ -414,13 +317,20 @@ export default function CrearViaje({ navigation }) {
         </Modal>
     );
 
+    if (creandoViaje) {
+        return (
+            <View style={styles.loadingFullScreen}>
+                <ActivityIndicator size="large" color="#207636" />
+                <Text style={styles.loadingText}>Creando tu viaje...</Text>
+            </View>
+        );
+    }
+
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView contentContainerStyle={styles.container}>
                 <Text style={styles.titulo}>Crear Viaje</Text>
 
-
-                {/* Fecha y Hora de salida */}
                 <View style={styles.horarioContainer}>
                     <View style={styles.horarioCard}>
                         <Ionicons name="calendar" size={24} color="#207636" />
@@ -444,10 +354,9 @@ export default function CrearViaje({ navigation }) {
                 </View>
 
                 <Text style={styles.infoSalida}>
-                    ⏱️ El viaje iniciará automáticamente 10 minutos después de crearlo
+                    ⏱️ El viaje iniciará automáticamente 2 minutos después de crearlo
                 </Text>
 
-                {/* Vehículo y tipo */}
                 <View style={styles.vehiculoSection}>
                     <Text style={styles.subtitulo}>Tu vehículo:</Text>
                     <View style={styles.tipoVehiculoContainer}>
@@ -482,7 +391,6 @@ export default function CrearViaje({ navigation }) {
                     )}
                 </View>
 
-                {/* Cupos */}
                 <View style={styles.cuposContainer}>
                     <Text style={styles.label}>Número de cupos disponibles:</Text>
                     <View style={styles.cuposControles}>
@@ -518,7 +426,6 @@ export default function CrearViaje({ navigation }) {
                     </Text>
                 </View>
 
-                {/* Origen con modal */}
                 <View style={styles.inputContainer}>
                     <Text style={styles.label}>Origen:</Text>
                     <TouchableOpacity
@@ -538,7 +445,6 @@ export default function CrearViaje({ navigation }) {
                     </TouchableOpacity>
                 </View>
 
-                {/* Destino con modal */}
                 <View style={styles.inputContainer}>
                     <Text style={styles.label}>Destino:</Text>
                     <TouchableOpacity
@@ -564,12 +470,14 @@ export default function CrearViaje({ navigation }) {
                 <TouchableOpacity
                     style={styles.boton}
                     onPress={crearViaje}
+                    disabled={creandoViaje}
                 >
-                    <Text style={styles.botonTexto}>Crear Viaje</Text>
+                    <Text style={styles.botonTexto}>
+                        {creandoViaje ? 'Creando...' : 'Crear Viaje'}
+                    </Text>
                 </TouchableOpacity>
             </ScrollView>
 
-            {/* Modals */}
             <SelectorModal
                 visible={modalOrigenVisible}
                 onClose={() => setModalOrigenVisible(false)}
@@ -603,6 +511,17 @@ const styles = StyleSheet.create({
     container: {
         padding: 20,
         paddingBottom: 40,
+    },
+    loadingFullScreen: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+    },
+    loadingText: {
+        marginTop: 15,
+        fontSize: 16,
+        color: '#666',
     },
     titulo: {
         fontSize: 28,

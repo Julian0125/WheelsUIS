@@ -19,6 +19,8 @@ import Perfil from './pages/Perfil';
 import RegistrarVehiculo from './pages/RegistrarVehiculo';  
 import MisVehiculos from './pages/MisVehiculos';
 import HistorialViajes from './pages/HistorialViajes';
+import ViajeActivo from './pages/ViajeActivo';
+
 
 const linking = {
     prefixes: ['http://localhost:8081', 'https://localhost:8081'],
@@ -34,6 +36,7 @@ const linking = {
             RegistrarVehiculo: 'RegistrarVehiculo',
             MisVehiculos: 'MisVehiculos',
             HistorialViajes: 'HistorialViajes',
+            ViajeActivo: 'ViajeActivo',
         },
     },
 };

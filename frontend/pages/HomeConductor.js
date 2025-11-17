@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Alert, ActivityIndicator } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import ViajeService from '../services/ViajeService';
-import ViajePollingService from '../services/ViajePollingService';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function HomeConductor({ navigation }) {
     const { usuario } = useAuth();
@@ -10,58 +10,70 @@ export default function HomeConductor({ navigation }) {
     const [cargando, setCargando] = useState(true);
     const nombre = usuario?.nombre || 'Usuario';
 
-    useEffect(() => {
-        cargarViajeActual();
-    }, []);
+    // ✅ Verificar viaje activo cada vez que la pantalla está visible
+    useFocusEffect(
+        React.useCallback(() => {
+            cargarViajeActual();
+        }, [])
+    );
 
     const cargarViajeActual = async () => {
         try {
             setCargando(true);
+            console.log('🔍 Verificando viaje activo en HomeConductor...');
+
             const result = await ViajeService.obtenerViajeActualConductor(usuario.id);
 
             if (result.success) {
+                console.log('✅ Viaje activo encontrado:', result.data);
                 setViajeActual(result.data);
 
-                // Si el viaje está creado, iniciar monitoreo
-                if (result.data.estadoViaje === 'CREADO') {
-                    ViajePollingService.iniciarMonitoreo(result.data.id, (iniciado) => {
-                        if (iniciado) {
-                            Alert.alert('¡Viaje iniciado!', 'Tu viaje ha comenzado automáticamente.');
-                            cargarViajeActual(); // Recargar para actualizar el estado
-                        }
-                    });
+                // ✅ Redirigir automáticamente si hay viaje CREADO o ENCURSO
+                if (result.data.estadoViaje === 'CREADO' || result.data.estadoViaje === 'ENCURSO') {
+                    console.log('🚗 Redirigiendo a ViajeActivo...');
+                    navigation.replace('ViajeActivo', { viaje: result.data });
                 }
+            } else {
+                console.log('ℹ️ No hay viaje activo');
+                setViajeActual(null);
             }
         } catch (error) {
-            console.error('Error al cargar viaje actual:', error);
+            console.error('❌ Error al cargar viaje actual:', error);
+            setViajeActual(null);
         } finally {
             setCargando(false);
         }
     };
 
-    const iniciarViajeManualmente = async () => {
-        if (!viajeActual) return;
-
-        Alert.alert(
-            'Iniciar Viaje',
-            '¿Estás seguro que deseas iniciar el viaje ahora?',
-            [
-                { text: 'Cancelar', style: 'cancel' },
-                {
-                    text: 'Iniciar',
-                    onPress: async () => {
-                        const result = await ViajeService.iniciarViaje(viajeActual.id);
-                        if (result.success) {
-                            Alert.alert('Éxito', 'El viaje ha iniciado correctamente');
-                            cargarViajeActual();
-                        } else {
-                            Alert.alert('Error', result.error);
-                        }
+    const handleCrearViaje = () => {
+        // ✅ Verificación rápida antes de navegar
+        if (viajeActual && (viajeActual.estadoViaje === 'CREADO' || viajeActual.estadoViaje === 'ENCURSO')) {
+            Alert.alert(
+                'Viaje Activo',
+                'Ya tienes un viaje activo. Debes finalizarlo antes de crear uno nuevo.',
+                [
+                    { text: 'Cancelar', style: 'cancel' },
+                    {
+                        text: 'Ver Viaje Activo',
+                        onPress: () => navigation.navigate('ViajeActivo', { viaje: viajeActual })
                     }
-                }
-            ]
-        );
+                ]
+            );
+            return;
+        }
+
+        // Navegar directamente a CrearViaje
+        navigation.navigate('CrearViaje');
     };
+
+    if (cargando) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#207636" />
+                <Text style={styles.loadingText}>Verificando viajes activos...</Text>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
@@ -80,25 +92,22 @@ export default function HomeConductor({ navigation }) {
             <Text style={styles.title}>¿Listo para publicar un nuevo viaje?</Text>
             <Text style={styles.subtitle}>Comparte ruta, comparte comodidad.</Text>
 
-            {/* Mostrar viaje actual si existe */}
-            {viajeActual && (
-                <View style={styles.viajeActualCard}>
-                    <Text style={styles.viajeActualTitulo}>Viaje Actual</Text>
-                    <Text style={styles.viajeActualRuta}>
-                        {viajeActual.origen} → {viajeActual.destino}
-                    </Text>
-                    <Text style={styles.viajeActualEstado}>
-                        Estado: {ViajeService.obtenerEstadoTexto(viajeActual.estadoViaje)}
-                    </Text>
-
-                    {viajeActual.estadoViaje === 'CREADO' && (
+            {/* ✅ Mostrar advertencia si tiene viaje activo */}
+            {viajeActual && (viajeActual.estadoViaje === 'CREADO' || viajeActual.estadoViaje === 'ENCURSO') && (
+                <View style={styles.viajeActivoWarning}>
+                    <Text style={styles.warningIcon}>⚠️</Text>
+                    <View style={styles.warningContent}>
+                        <Text style={styles.warningTitle}>Viaje Activo Detectado</Text>
+                        <Text style={styles.warningText}>
+                            Tienes un viaje {viajeActual.estadoViaje === 'CREADO' ? 'pendiente' : 'en curso'}
+                        </Text>
                         <TouchableOpacity
-                            style={styles.botonIniciarManual}
-                            onPress={iniciarViajeManualmente}
+                            style={styles.verViajeButton}
+                            onPress={() => navigation.navigate('ViajeActivo', { viaje: viajeActual })}
                         >
-                            <Text style={styles.botonIniciarManualText}>Iniciar Ahora</Text>
+                            <Text style={styles.verViajeButtonText}>Ver Viaje</Text>
                         </TouchableOpacity>
-                    )}
+                    </View>
                 </View>
             )}
 
@@ -107,7 +116,7 @@ export default function HomeConductor({ navigation }) {
                     <Text style={styles.helperText}>Si quieres facilitar ir a algún lugar</Text>
                     <TouchableOpacity
                         style={[styles.optionButton, styles.crearButton]}
-                        onPress={() => navigation.navigate('CrearViaje')}
+                        onPress={handleCrearViaje}
                         activeOpacity={0.8}
                     >
                         <Text style={styles.optionText}>CREAR</Text>
@@ -128,6 +137,17 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFF',
         padding: 20,
         alignItems: 'center',
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#FFF',
+    },
+    loadingText: {
+        marginTop: 10,
+        fontSize: 16,
+        color: '#666',
     },
     carBackground: {
         position: 'absolute',
@@ -167,42 +187,46 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: 6,
     },
-    viajeActualCard: {
-        backgroundColor: '#E8F5E9',
-        borderRadius: 15,
+    viajeActivoWarning: {
+        flexDirection: 'row',
+        backgroundColor: '#FFF3CD',
+        borderRadius: 12,
         padding: 15,
         marginTop: 20,
-        width: '90%',
+        marginHorizontal: 10,
         borderWidth: 2,
-        borderColor: '#207636',
+        borderColor: '#FFA726',
+        alignItems: 'center',
     },
-    viajeActualTitulo: {
+    warningIcon: {
+        fontSize: 32,
+        marginRight: 12,
+    },
+    warningContent: {
+        flex: 1,
+    },
+    warningTitle: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: '#207636',
-        marginBottom: 8,
+        color: '#F57C00',
+        marginBottom: 4,
     },
-    viajeActualRuta: {
-        fontSize: 15,
-        color: '#333',
-        marginBottom: 5,
-    },
-    viajeActualEstado: {
+    warningText: {
         fontSize: 14,
         color: '#666',
-        marginBottom: 10,
+        marginBottom: 8,
     },
-    botonIniciarManual: {
-        backgroundColor: '#207636',
-        padding: 10,
+    verViajeButton: {
+        backgroundColor: '#F57C00',
+        paddingVertical: 8,
+        paddingHorizontal: 15,
         borderRadius: 8,
-        alignItems: 'center',
-        marginTop: 5,
+        alignSelf: 'flex-start',
     },
-    botonIniciarManualText: {
-        color: '#FFF',
+    verViajeButtonText: {
+        color: '#fff',
         fontWeight: 'bold',
-        fontSize: 14,
+        fontSize: 13,
     },
     buttonsContainer: {
         flexDirection: 'row',

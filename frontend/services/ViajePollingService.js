@@ -6,30 +6,24 @@ class ViajePollingServiceClass {
         this.viajeActualId = null;
     }
 
-    // Iniciar monitoreo de un viaje
     iniciarMonitoreo(idViaje, onViajeIniciado) {
-        // Si ya está monitoreando este viaje, no hacer nada
         if (this.intervalId && this.viajeActualId === idViaje) {
             console.log('⚠️ Ya se está monitoreando el viaje', idViaje);
             return;
         }
 
-        // Detener cualquier monitoreo previo
         this.detenerMonitoreo();
 
         this.viajeActualId = idViaje;
         console.log('🔄 Iniciando monitoreo del viaje', idViaje);
 
-        // Verificar inmediatamente
         this.verificarEstadoViaje(idViaje, onViajeIniciado);
 
-        // Luego verificar cada 30 segundos
         this.intervalId = setInterval(() => {
             this.verificarEstadoViaje(idViaje, onViajeIniciado);
-        }, 30000); // 30 segundos
+        }, 15000);
     }
 
-    // Verificar el estado del viaje
     async verificarEstadoViaje(idViaje, callback) {
         try {
             console.log('🔍 Verificando estado del viaje', idViaje);
@@ -53,19 +47,30 @@ class ViajePollingServiceClass {
                     callback && callback(true, mensaje);
                     this.detenerMonitoreo();
                 } else {
-                    console.log('⏳ Viaje aún no puede iniciar');
+                    console.log('⏳ Viaje aún no puede iniciar:', mensaje);
                     callback && callback(false, mensaje);
                 }
+            } else if (response.status === 500) {
+                const errorText = await response.text();
+                console.error('❌ Error 500 del servidor:', errorText);
+
+                // ⚠️ NO detener el monitoreo, seguir intentando
+                console.log('⏳ Reintentando en 15 segundos...');
+                callback && callback(false, 'Error del servidor, reintentando...');
+            } else if (response.status === 400) {
+                const error = await response.text();
+                console.log('⏳ No se puede iniciar aún:', error);
+                callback && callback(false, error);
             } else {
                 const error = await response.text();
                 console.log('❌ Error al verificar viaje:', error);
             }
         } catch (error) {
             console.error('❌ Error en verificarEstadoViaje:', error);
+            // No detener el monitoreo por errores de red
         }
     }
 
-    // Detener monitoreo
     detenerMonitoreo() {
         if (this.intervalId) {
             clearInterval(this.intervalId);
@@ -75,17 +80,14 @@ class ViajePollingServiceClass {
         }
     }
 
-    // Verificar si está monitoreando
     estaMonitoreando() {
         return this.intervalId !== null;
     }
 
-    // Obtener ID del viaje actual
     obtenerViajeActual() {
         return this.viajeActualId;
     }
 }
 
-// Exportar una instancia única (Singleton)
 const ViajePollingService = new ViajePollingServiceClass();
 export default ViajePollingService;
