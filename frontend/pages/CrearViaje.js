@@ -31,27 +31,47 @@ export default function CrearViaje({ navigation }) {
     const [modalOrigenVisible, setModalOrigenVisible] = useState(false);
     const [modalDestinoVisible, setModalDestinoVisible] = useState(false);
 
-    // Hora de salida: 2 minutos después
+    // ✅ CALCULAR HORA EN 10 MINUTOS PERO EN UTC
     useEffect(() => {
         const ahora = new Date();
-        const salidaEnDosMinutos = new Date(ahora.getTime() + 2 * 60000);
-        setHoraSalida(salidaEnDosMinutos);
+        const salidaLocal = new Date(ahora.getTime() + 10 * 60000);
+
+        // Convertir a UTC para que Render no desfase la hora
+        const salidaUTC = new Date(
+            Date.UTC(
+                salidaLocal.getFullYear(),
+                salidaLocal.getMonth(),
+                salidaLocal.getDate(),
+                salidaLocal.getHours(),
+                salidaLocal.getMinutes(),
+                salidaLocal.getSeconds()
+            )
+        );
+
+        setHoraSalida(salidaUTC);
+
+        console.log("Hora local:", salidaLocal.toString());
+        console.log("Hora enviada al backend (UTC):", salidaUTC.toISOString());
     }, []);
 
+    // Acepta Date u ISO string
     const formatearFecha = (fecha) => {
         if (!fecha) return '';
+        const fechaObj = (typeof fecha === 'string') ? new Date(fecha) : fecha;
         const opciones = {
             weekday: 'long',
             year: 'numeric',
             month: 'long',
             day: 'numeric'
         };
-        return fecha.toLocaleDateString('es-CO', opciones);
+        return fechaObj.toLocaleDateString('es-CO', opciones);
     };
 
+    // Acepta Date u ISO string
     const formatearHora = (fecha) => {
         if (!fecha) return '';
-        return fecha.toLocaleTimeString('es-CO', {
+        const fechaObj = (typeof fecha === 'string') ? new Date(fecha) : fecha;
+        return fechaObj.toLocaleTimeString('es-CO', {
             hour: '2-digit',
             minute: '2-digit'
         });
@@ -68,7 +88,6 @@ export default function CrearViaje({ navigation }) {
                     if (usuario.tipo === 'CONDUCTOR') {
                         setConductorId(usuario.id);
 
-                        // ✅ Solo cargar vehículo, sin verificar viajes
                         if (usuario.vehiculo) {
                             setVehiculo(usuario.vehiculo);
                             const tipo = (usuario.vehiculo.tipo || '').toString().toUpperCase().trim();
@@ -140,7 +159,6 @@ export default function CrearViaje({ navigation }) {
         if (cupos > 1) setCupos(cupos - 1);
     };
 
-    // ✅ FUNCIÓN PARA MAPEAR DESTINO A TIPO DE VIAJE
     const obtenerTipoViaje = (origen, destino) => {
         const origenLower = origen.toLowerCase().trim();
         const destinoLower = destino.toLowerCase().trim();
@@ -149,25 +167,21 @@ export default function CrearViaje({ navigation }) {
         console.log('   Origen:', origen, '→', origenLower);
         console.log('   Destino:', destino, '→', destinoLower);
 
-        // ✅ Universidad → Barrio Mutis
         if (origenLower.includes('universidad') && destinoLower.includes('mutis')) {
             console.log('✅ Tipo detectado: mutis (Universidad → Barrio Mutis)');
             return 'mutis';
         }
 
-        // ✅ Universidad → Barrio La Cumbre
         if (origenLower.includes('universidad') && destinoLower.includes('cumbre')) {
             console.log('✅ Tipo detectado: cumbre (Universidad → Barrio La Cumbre)');
             return 'cumbre';
         }
 
-        // ✅ Barrio Mutis → Universidad (requiere modificar backend primero)
         if (origenLower.includes('mutis') && destinoLower.includes('universidad')) {
             console.log('✅ Tipo detectado: mutisu (Barrio Mutis → Universidad)');
             return 'mutisu';
         }
 
-        // ✅ Barrio La Cumbre → Universidad (requiere modificar backend primero)
         if (origenLower.includes('cumbre') && destinoLower.includes('universidad')) {
             console.log('✅ Tipo detectado: cumbreu (Barrio La Cumbre → Universidad)');
             return 'cumbreu';
@@ -191,7 +205,6 @@ export default function CrearViaje({ navigation }) {
         try {
             setCreandoViaje(true);
 
-            // ✅ Verificar nuevamente que no haya viaje activo
             const viajeActivoCheck = await ViajeService.obtenerViajeActualConductor(conductorId);
             if (viajeActivoCheck.success && viajeActivoCheck.data) {
                 const estado = viajeActivoCheck.data.estadoViaje;
@@ -206,7 +219,6 @@ export default function CrearViaje({ navigation }) {
                 }
             }
 
-            // ✅ Obtener tipo de viaje usando la función de mapeo
             const tipoViaje = obtenerTipoViaje(origen, destino);
 
             if (!tipoViaje) {
@@ -240,6 +252,7 @@ export default function CrearViaje({ navigation }) {
                 const viaje = await response.json();
                 console.log('✅ Viaje creado exitosamente:', viaje);
 
+                // Guardar viaje actual y navegar al detalle del viaje
                 await ViajeService.guardarViajeActual(viaje);
                 navigation.replace('ViajeActivo', { viaje });
 
@@ -353,8 +366,9 @@ export default function CrearViaje({ navigation }) {
                     </View>
                 </View>
 
+                {/* ✅ CORREGIDO: Texto actualizado */}
                 <Text style={styles.infoSalida}>
-                    ⏱️ El viaje iniciará automáticamente 2 minutos después de crearlo
+                    ⏱️ El viaje iniciará automáticamente 10 minutos después de crearlo
                 </Text>
 
                 <View style={styles.vehiculoSection}>

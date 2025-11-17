@@ -19,6 +19,8 @@ import RegistrarVehiculo from './pages/RegistrarVehiculo';
 import MisVehiculos from './pages/MisVehiculos';
 import HistorialViajes from './pages/HistorialViajes';
 import ViajeActivo from './pages/ViajeActivo';
+import BuscarViaje from './pages/BuscarViaje';
+
 
 const linking = {
     prefixes: ['http://localhost:8081', 'https://localhost:8081'],
@@ -239,14 +241,14 @@ function AppNavigator() {
                             />
 
                             <Stack.Screen
-                                name="BuscarViajes"
-                                component={() => null}
+                                name="BuscarViaje"
+                                component={BuscarViaje}
                                 options={{
                                     presentation: 'card',
-                                    headerShown: true,
-                                    headerTitle: 'Buscar Viajes',
+                                    headerShown: false,
                                 }}
                             />
+
                         </>
                     )}
                 </>

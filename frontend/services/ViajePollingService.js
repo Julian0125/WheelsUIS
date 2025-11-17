@@ -23,10 +23,16 @@ class ViajePollingServiceClass {
         // Primera verificación inmediata
         this.verificarEstadoViaje(idViaje, onViajeIniciado);
 
-        // Verificación periódica cada 15 segundos
+        // Verificación periódica cada 10 segundos
         this.intervalId = setInterval(() => {
             this.verificarEstadoViaje(idViaje, onViajeIniciado);
-        }, 15000);
+        }, 10000);
+    }
+
+    // 👉 Convertir siempre la fecha a hora local correcta
+    normalizarFecha(fechaISO) {
+        if (!fechaISO) return null;
+        return new Date(fechaISO);
     }
 
     async verificarEstadoViaje(idViaje, callback) {
@@ -34,9 +40,9 @@ class ViajePollingServiceClass {
             console.log('🔍 Verificando estado del viaje', idViaje);
 
             const response = await fetch(
-                `https://wheelsuis.onrender.com/viaje/${idViaje}/iniciar`,
+                `https://wheelsuis.onrender.com/api/conductor/listar`,
                 {
-                    method: 'PUT',
+                    method: 'GET',
                     headers: {
                         'Content-Type': 'application/json',
                     }
@@ -44,50 +50,83 @@ class ViajePollingServiceClass {
             );
 
             if (response.ok) {
-                const mensaje = await response.text();
-                console.log('📨 Respuesta del servidor:', mensaje);
+                const conductores = await response.json();
 
-                // Resetear contador de intentos fallidos
-                this.intentosFallidos = 0;
+                // Buscar el conductor que tenga este viaje activo
+                const conductorConViaje = conductores.find(c =>
+                    c.viajeActual && c.viajeActual.id === idViaje
+                );
 
-                if (mensaje.includes('ha iniciado')) {
-                    console.log('✅ ¡Viaje iniciado automáticamente!');
-                    callback && callback(true, mensaje);
-                    this.detenerMonitoreo();
+                if (conductorConViaje && conductorConViaje.viajeActual) {
+                    const viaje = conductorConViaje.viajeActual;
+
+                    console.log('📦 Estado del viaje:', viaje.estadoViaje);
+
+                    this.intentosFallidos = 0;
+
+                    if (viaje.estadoViaje === 'ENCURSO') {
+                        console.log('✅ ¡Viaje iniciado automáticamente!');
+                        callback && callback(true, 'El viaje ha iniciado automáticamente');
+                        this.detenerMonitoreo();
+                        return;
+                    }
+
+                    if (viaje.estadoViaje === 'CREADO') {
+
+                        const ahora = new Date();
+
+                        // Convertir horaSalida a hora local REAL
+                        const horaSalidaUTC = new Date(viaje.horaSalida);
+                        const horaSalidaLocal = new Date(horaSalidaUTC.getTime() - (horaSalidaUTC.getTimezoneOffset() * 60000));
+
+                        const minutosRestantes = Math.ceil((horaSalidaLocal - ahora) / 1000 / 60);
+
+
+                        let mensaje = '';
+
+                        if (minutosRestantes > 0) {
+                            // ⏱️ Siempre mostrar 10 minutos exactos
+                            mensaje = `El viaje iniciará en 10 minuto(s) o cuando se llenen los cupos (${viaje.pasajeros.length}/${viaje.cuposMaximos})`;
+                        } else {
+                            const minutosTranscurridos = Math.abs(minutosRestantes);
+
+                            if (minutosTranscurridos >= 2) {
+                                mensaje = 'El viaje debería iniciar en cualquier momento...';
+                            } else {
+                                mensaje = `Esperando 2 minutos desde la hora de salida (${2 - minutosTranscurridos} min restantes)`;
+                            }
+                        }
+
+                        console.log('⏳', mensaje);
+                        callback && callback(false, mensaje);
+                        return;
+                    }
+
+                    if (viaje.estadoViaje === 'FINALIZADO' || viaje.estadoViaje === 'CANCELADO') {
+                        console.log('🏁 Viaje finalizado/cancelado');
+                        this.detenerMonitoreo();
+                        callback && callback(false, 'El viaje ha sido ' + viaje.estadoViaje.toLowerCase());
+                        return;
+                    }
                 } else {
-                    console.log('⏳ Viaje aún no puede iniciar:', mensaje);
-                    callback && callback(false, mensaje);
+                    console.log('⚠️ No se encontró el viaje en los conductores activos');
+                    this.intentosFallidos++;
+
+                    if (this.intentosFallidos >= this.maxIntentosAntesDePausar) {
+                        console.log('⚠️ Varios intentos fallidos. Es posible que el viaje no exista.');
+                    }
+
+                    callback && callback(false, 'Verificando estado del viaje...');
+                    return;
                 }
-            } else if (response.status === 500 || response.status === 400) {
-                // ⚠️ Error del servidor - NO detener el monitoreo
-                this.intentosFallidos++;
-
-                const errorText = await response.text();
-                console.log(`⚠️ Error ${response.status} del servidor:`, errorText);
-                console.log(`⏳ Intento fallido ${this.intentosFallidos}/${this.maxIntentosAntesDePausar}`);
-
-                // Si hay muchos errores consecutivos, aumentar el intervalo
-                if (this.intentosFallidos >= this.maxIntentosAntesDePausar) {
-                    console.log('⏸️ Pausando verificaciones frecuentes debido a errores...');
-                    // Aumentar intervalo a 30 segundos después de varios errores
-                    this.detenerMonitoreo();
-                    this.intervalId = setInterval(() => {
-                        this.verificarEstadoViaje(idViaje, callback);
-                    }, 30000);
-                }
-
-                callback && callback(false, 'El viaje aún no puede iniciar. Verificando automáticamente...');
             } else {
-                const error = await response.text();
-                console.log('❌ Error inesperado:', error);
-                callback && callback(false, 'Error al verificar viaje');
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
             }
         } catch (error) {
-            console.error('❌ Error en verificarEstadoViaje:', error);
+            console.error('❌ Error al verificar estado del viaje:', error);
             this.intentosFallidos++;
 
-            // No detener el monitoreo por errores de red
-            console.log(`⏳ Error de red. Reintentando... (${this.intentosFallidos}/${this.maxIntentosAntesDePausar})`);
+            console.log(`⏳ Error de conexión. Reintentando... (${this.intentosFallidos}/${this.maxIntentosAntesDePausar})`);
 
             callback && callback(false, 'Error de conexión. Reintentando...');
         }

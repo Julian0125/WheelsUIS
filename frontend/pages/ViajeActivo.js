@@ -16,11 +16,10 @@ import { useFocusEffect } from '@react-navigation/native';
 import AlertService from "../utils/AlertService";
 
 export default function ViajeActivo({ navigation, route }) {
-    const { usuario, logout } = useAuth();
+    const { usuario } = useAuth();
     const [viaje, setViaje] = useState(route.params?.viaje || null);
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
-    const [iniciandoViaje, setIniciandoViaje] = useState(false);
     const [finalizandoViaje, setFinalizandoViaje] = useState(false);
     const [cancelandoViaje, setCancelandoViaje] = useState(false);
     const [mensajeEstado, setMensajeEstado] = useState('');
@@ -87,64 +86,6 @@ export default function ViajeActivo({ navigation, route }) {
                 [{ text: 'OK', onPress: () => cargarViajeActual() }]
             );
         }
-    };
-
-    const handleIniciarManual = async () => {
-        // ✅ VERIFICAR PRIMERO SI YA PUEDE INICIAR
-        const ahora = new Date();
-        const horaSalida = new Date(viaje.horaSalida);
-        const minutosTranscurridos = Math.floor((ahora - horaSalida) / 1000 / 60);
-
-        if (ahora < horaSalida && viaje.pasajeros.length < viaje.cuposMaximos) {
-            AlertService.alert(
-                'No se puede iniciar aún',
-                `El viaje iniciará automáticamente:\n\n` +
-                `• A la hora de salida (${formatearHora(horaSalida)})\n` +
-                `• Cuando se llenen los cupos (${viaje.pasajeros.length}/${viaje.cuposMaximos})\n` +
-                `• O 2 minutos después de la hora de salida\n\n` +
-                `Por favor espera un momento.`
-            );
-            return;
-        }
-
-        AlertService.confirm(
-            'Iniciar Viaje',
-            '¿Seguro que desea iniciar este viaje ahora?',
-            async () => {
-                try {
-                    setIniciandoViaje(true);
-                    setMensajeEstado('Iniciando viaje...');
-
-                    const result = await ViajeService.iniciarViaje(viaje.id);
-
-                    if (result.success) {
-                        const viajeActualizado = { ...viaje, estadoViaje: 'ENCURSO' };
-                        setViaje(viajeActualizado);
-                        await ViajeService.guardarViajeActual(viajeActualizado);
-                        ViajePollingService.detenerMonitoreo();
-
-                        setMensajeEstado('¡Viaje iniciado exitosamente!');
-                        AlertService.alert('Éxito', 'El viaje ha iniciado correctamente');
-                    } else {
-                        setMensajeEstado('No se pudo iniciar el viaje');
-                        AlertService.alert(
-                            'No se puede iniciar',
-                            'El viaje aún no cumple las condiciones para iniciar. ' +
-                            'Espera a la hora de salida o a que se llenen los cupos.'
-                        );
-                    }
-                } catch (error) {
-                    console.error('❌ Error al iniciar viaje:', error);
-                    setMensajeEstado('Error al iniciar viaje');
-                    AlertService.alert(
-                        'Error',
-                        'Hubo un problema al iniciar el viaje. Por favor intenta más tarde.'
-                    );
-                } finally {
-                    setIniciandoViaje(false);
-                }
-            }
-        );
     };
 
     const handleCancelarViaje = () => {
@@ -215,19 +156,21 @@ export default function ViajeActivo({ navigation, route }) {
 
     const formatearFecha = (fecha) => {
         if (!fecha) return '';
-        return new Date(fecha).toLocaleString('es-CO', {
+        const fechaObj = typeof fecha === 'string' ? new Date(fecha) : fecha;
+
+        return fechaObj.toLocaleDateString('es-CO', {
             weekday: 'long',
             year: 'numeric',
             month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
+            day: 'numeric'
         });
     };
 
     const formatearHora = (fecha) => {
         if (!fecha) return '';
-        return new Date(fecha).toLocaleTimeString('es-CO', {
+        const fechaObj = typeof fecha === 'string' ? new Date(fecha) : fecha;
+
+        return fechaObj.toLocaleTimeString('es-CO', {
             hour: '2-digit',
             minute: '2-digit'
         });
@@ -236,7 +179,7 @@ export default function ViajeActivo({ navigation, route }) {
     const obtenerEstadoBadge = () => {
         switch (viaje?.estadoViaje) {
             case 'CREADO':
-                return { color: '#FFA726', texto: '⏳ Pendiente de iniciar', icon: 'time' };
+                return { color: '#FFA726', texto: '⏳ Esperando inicio automático', icon: 'time' };
             case 'ENCURSO':
                 return { color: '#66BB6A', texto: '🚗 En curso', icon: 'car-sport' };
             case 'FINALIZADO':
@@ -279,34 +222,9 @@ export default function ViajeActivo({ navigation, route }) {
                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#207636']} />
             }
         >
-            {/* HEADER */}
+            {/* HEADER SIN BOTONES */}
             <View style={styles.header}>
-                <TouchableOpacity
-                    style={styles.botonAtras}
-                    onPress={() => navigation.navigate('HomeConductor')}
-                >
-                    <Ionicons name="arrow-back" size={28} color="#fff" />
-                </TouchableOpacity>
-
-                <Text style={styles.headerTitle}>Viaje Activo</Text>
-
-                <TouchableOpacity
-                    style={styles.logoutButton}
-                    onPress={() => {
-                        AlertService.confirm(
-                            "Cerrar sesión",
-                            "¿Seguro que desea salir?",
-                            async () => {
-                                ViajePollingService.detenerMonitoreo();
-                                await ViajeService.limpiarViajeActual();
-                                logout();
-                                navigation.replace("Login");
-                            }
-                        );
-                    }}
-                >
-                    <Ionicons name="log-out-outline" size={26} color="#fff" />
-                </TouchableOpacity>
+                <Text style={styles.headerTitleCentered}>Viaje Activo</Text>
             </View>
 
             {/* ESTADO */}
@@ -384,23 +302,6 @@ export default function ViajeActivo({ navigation, route }) {
 
             {/* BOTONES DE ACCIÓN */}
             <View style={styles.botonesContainer}>
-                {viaje.estadoViaje === 'CREADO' && (
-                    <TouchableOpacity
-                        style={[styles.botonAccion, styles.botonIniciar]}
-                        onPress={handleIniciarManual}
-                        disabled={iniciandoViaje}
-                    >
-                        {iniciandoViaje ? (
-                            <ActivityIndicator color="#fff" />
-                        ) : (
-                            <>
-                                <Ionicons name="play-circle" size={24} color="#fff" />
-                                <Text style={styles.botonAccionTexto}>Iniciar Ahora</Text>
-                            </>
-                        )}
-                    </TouchableOpacity>
-                )}
-
                 {viaje.estadoViaje === 'ENCURSO' && (
                     <>
                         <TouchableOpacity
@@ -451,10 +352,11 @@ export default function ViajeActivo({ navigation, route }) {
                 <View style={styles.infoBox}>
                     <Ionicons name="information-circle" size={24} color="#2196F3" />
                     <Text style={styles.infoTexto}>
-                        El viaje iniciará automáticamente:{'\n\n'}
-                        • A la hora de salida programada{'\n'}
-                        • Cuando se llenen todos los cupos{'\n'}
-                        • O 2 minutos después de la hora de salida
+                        🤖 El viaje iniciará automáticamente cuando:{'\n\n'}
+                        ✅ Pasen 10 minutos después de crearlo{'\n'}
+                        ✅ Se llenen todos los cupos disponibles{'\n'}
+                        ✅ Pasen 2 minutos adicionales desde la hora de salida{'\n\n'}
+                        ⚡ No necesitas hacer nada, el sistema lo hará por ti.
                     </Text>
                 </View>
             )}
@@ -472,20 +374,14 @@ const styles = StyleSheet.create({
         paddingTop: 50,
         paddingBottom: 20,
         paddingHorizontal: 20,
-        flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center'
     },
-    botonAtras: {
-        marginRight: 15,
-    },
-    headerTitle: {
+    headerTitleCentered: {
         fontSize: 24,
         fontWeight: 'bold',
         color: '#fff',
-        flex: 1,
-    },
-    logoutButton: {
-        paddingHorizontal: 10,
+        textAlign: 'center'
     },
     estadoBadge: {
         flexDirection: 'row',
@@ -610,9 +506,6 @@ const styles = StyleSheet.create({
         padding: 16,
         borderRadius: 12,
         marginBottom: 12,
-    },
-    botonIniciar: {
-        backgroundColor: '#4CAF50',
     },
     botonChat: {
         backgroundColor: '#2196F3',

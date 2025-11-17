@@ -27,9 +27,13 @@ export default function HomePasajero({ navigation }) {
       <View style={styles.buttonsContainer}>
         <View style={styles.buttonSection}>
           <Text style={styles.helperText}>Si buscas ir con otras personas</Text>
-          <TouchableOpacity style={[styles.optionButton, styles.buscarButton]}>
-            <Text style={styles.optionText}>BUSCAR</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+                style={[styles.optionButton, styles.buscarButton]}
+                onPress={() => navigation.navigate("BuscarViaje")}
+            >
+                <Text style={styles.optionText}>BUSCAR</Text>
+            </TouchableOpacity>
+
         </View>
       </View>
 
