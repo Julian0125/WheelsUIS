@@ -176,12 +176,13 @@ public class ViajeService {
 
 	         // Limpiar todas las relaciones antes de eliminar
 	         viaje.getPasajeros().clear();
-	         viaje.setConductor(null);
+	         viaje.setEstadoViaje(EstadoViaje.CANCELADO);
+			 Conductor conductor = viaje.getConductor();
+			 conductor.setViajeActual(null);
+			 conductorRepository.save(conductor);
 
 	         // Guardar el viaje limpio antes de eliminar
 	         viajeRepository.save(viaje);
-	         // Ahora sí eliminar
-	         viajeRepository.delete(viaje);
 
 	         System.out.println("Viaje cancelado completamente por el conductor ID " + idUsuario);
 	         
