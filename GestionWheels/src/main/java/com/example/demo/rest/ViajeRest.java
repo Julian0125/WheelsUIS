@@ -22,8 +22,8 @@ public class ViajeRest {
     private ViajeService viajeService;
 
 
-	@PutMapping("/{id}/iniciar")
-	public ResponseEntity<String> iniciarViaje(@PathVariable int idViaje) {
+	@PutMapping("/{idViaje}/iniciar")
+	public ResponseEntity<String> iniciarViaje(@PathVariable("idViaje") int idViaje) {
 		boolean iniciado = viajeService.iniciarViaje(idViaje);
 
 		if (iniciado) {
@@ -106,7 +106,7 @@ public class ViajeRest {
 	            return ResponseEntity.badRequest().body(e.getMessage());
 	        }
 	    }
-	
+
 	    // ✅ Historial del pasajero
 	    @GetMapping("/pasajero/{idPasajero}/historial")
 	    public ResponseEntity<?> historialPasajero(@PathVariable int idPasajero) {

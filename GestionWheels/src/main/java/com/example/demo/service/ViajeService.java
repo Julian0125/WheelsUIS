@@ -108,10 +108,13 @@ public class ViajeService {
 		LocalDateTime horaSalida = viaje.getHoraSalida();
 
 		boolean yaEsHora = !ahora.isBefore(horaSalida);
-		boolean sinCupos= viaje.getCuposMaximos()==0;
+		boolean sinCupos = viaje.getPasajeros().size() >= viaje.getCuposMaximos();
+
 		// 1. Si ya es la hora y los cupos están llenos
 		if (yaEsHora || sinCupos ) {
+
 			viaje.setEstadoViaje(EstadoViaje.ENCURSO);
+			viajeRepository.save(viaje); // ❗ Guardar cambio
 			return true;
 		}
 
@@ -120,6 +123,7 @@ public class ViajeService {
 
 		if (minutosPasados >= 2) {
 			viaje.setEstadoViaje(EstadoViaje.ENCURSO);
+			viajeRepository.save(viaje);
 			return true;
 		}
 
@@ -132,12 +136,15 @@ public class ViajeService {
 		    Optional<Pasajero> pasajeroOpt = pasajeroRepository.findById(idPasajero);
 
 		    // Validaciones de negocio
+
 		    if (viajeOpt.isEmpty()) throw new IllegalArgumentException("Viaje no encontrado");
 		    if (pasajeroOpt.isEmpty()) throw new IllegalArgumentException("Pasajero no encontrado");
 
 		    Viaje viaje = viajeOpt.get();
 		    Pasajero pasajero = pasajeroOpt.get();
-
+			 if (viaje.getEstadoViaje()!= EstadoViaje.CREADO) {
+				 throw new IllegalArgumentException("Solo puedes aceptar viajes que estén en estado CREADO.");
+			 }
 		    if (viaje.getPasajeros().contains(pasajero))
 		        throw new IllegalArgumentException("El pasajero ya está en el viaje");
 
@@ -147,11 +154,11 @@ public class ViajeService {
 		    // Agregar pasajero
 		    viaje.getPasajeros().add(pasajero);
 		    // 🔹 Asociar viaje al pasajero
-		    
+
 		    viajeRepository.save(viaje);
 		    pasajero.setViajeActual(viaje);
 		    pasajeroRepository.save(pasajero);
-		    
+
 		    return viaje;
 		}
 	 @Transactional
