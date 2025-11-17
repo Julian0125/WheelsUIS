@@ -18,9 +18,9 @@ import ViajeService from '../services/ViajeService';
 export default function CrearViaje({ navigation }) {
     const [origen, setOrigen] = useState('');
     const [destino, setDestino] = useState('');
-    const [cupos, setCupos] = useState(1);     // AHORA cupos es fijo (no editable)
+    const [cupos, setCupos] = useState(1);
     const [vehiculo, setVehiculo] = useState(null);
-    const [tipoVehiculo, setTipoVehiculo] = useState('');
+    const [tipoVehiculo, setTipoVehiculo] = useState(''); // valores esperados: 'MOTO' o 'COCHE'
     const [conductorId, setConductorId] = useState(null);
     const [rutasDisponibles, setRutasDisponibles] = useState([]);
     const [cargandoRutas, setCargandoRutas] = useState(true);
@@ -30,7 +30,9 @@ export default function CrearViaje({ navigation }) {
     const [modalOrigenVisible, setModalOrigenVisible] = useState(false);
     const [modalDestinoVisible, setModalDestinoVisible] = useState(false);
 
-    // HORA EN 10 MIN
+    // ============================
+    // HORA (+10 MINUTOS)
+    // ============================
     useEffect(() => {
         const ahora = new Date();
         const salidaLocal = new Date(ahora.getTime() + 10 * 60000);
@@ -51,8 +53,7 @@ export default function CrearViaje({ navigation }) {
 
     const formatearFecha = (fecha) => {
         if (!fecha) return '';
-        const fechaObj = typeof fecha === 'string' ? new Date(fecha) : fecha;
-        return fechaObj.toLocaleDateString('es-CO', {
+        return new Date(fecha).toLocaleDateString('es-CO', {
             weekday: 'long',
             year: 'numeric',
             month: 'long',
@@ -62,36 +63,53 @@ export default function CrearViaje({ navigation }) {
 
     const formatearHora = (fecha) => {
         if (!fecha) return '';
-        const fechaObj = typeof fecha === 'string' ? new Date(fecha) : fecha;
-        return fechaObj.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+        return new Date(fecha).toLocaleTimeString('es-CO', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
     };
 
-    // CARGAR USUARIO Y VEHÍCULO
+    // ============================
+    // CARGAR CONDUCTOR + VEHÍCULO
+    // ============================
     useEffect(() => {
         const cargarUsuario = async () => {
             try {
                 const usuarioGuardado = await AsyncStorage.getItem('usuario');
 
-                if (usuarioGuardado) {
-                    const usuario = JSON.parse(usuarioGuardado);
+                if (!usuarioGuardado) {
+                    console.warn('No se encontró usuario en AsyncStorage (key "usuario")');
+                    return;
+                }
 
-                    if (usuario.tipo === 'CONDUCTOR') {
-                        setConductorId(usuario.id);
+                const usuario = JSON.parse(usuarioGuardado);
 
-                        if (usuario.vehiculo) {
-                            setVehiculo(usuario.vehiculo);
-                            const tipo = usuario.vehiculo.tipo.toUpperCase().trim();
-                            setTipoVehiculo(tipo);
+                if (usuario.tipo === 'CONDUCTOR') {
+                    setConductorId(usuario.id);
 
-                            // 🔥 CUPOS FIJOS SEGÚN VEHÍCULO
-                            if (tipo === 'MOTO') {
-                                setCupos(1);
-                            } else {
-                                setCupos(4); // CARRO / COCHE
-                            }
+                    if (usuario.vehiculo) {
+                        setVehiculo(usuario.vehiculo);
+
+                        // Tipo EXACTO desde la BD: 'MOTO' o 'COCHE'
+                        const tipoRaw = (usuario.vehiculo.tipo || '').toString();
+                        const tipo = tipoRaw.toUpperCase().trim();
+
+                        // Mapear solamente los valores esperados
+                        if (tipo === 'MOTO') {
+                            setTipoVehiculo('MOTO');
+                            setCupos(1);
+                        } else if (tipo === 'COCHE' || tipo === 'CARRO' || tipo === 'AUTO') {
+                            // Aceptamos varias variantes por si hay inconsistencias
+                            setTipoVehiculo('COCHE');
+                            setCupos(4);
                         } else {
-                            Alert.alert('Error', 'No tienes un vehículo registrado.');
+                            // Si llega otro valor, asumimos COCHE por defecto pero mostramos alerta leve
+                            console.warn(`Tipo de vehículo desconocido desde BD: "${tipo}" — usando COCHE por defecto`);
+                            setTipoVehiculo('COCHE');
+                            setCupos(4);
                         }
+                    } else {
+                        Alert.alert('Error', 'No tienes un vehículo registrado.');
                     }
                 }
             } catch (error) {
@@ -102,24 +120,30 @@ export default function CrearViaje({ navigation }) {
         cargarUsuario();
     }, []);
 
+    // ============================
     // RUTAS PREDEFINIDAS
+    // ============================
     useEffect(() => {
         if (!conductorId) return;
 
         const obtenerRutas = async () => {
             try {
                 setCargandoRutas(true);
+
                 const response = await fetch(
                     `https://wheelsuis.onrender.com/viaje/rutas-predefinidas?idConductor=${conductorId}`
                 );
 
                 if (response.ok) {
                     const data = await response.json();
-                    setRutasDisponibles(data);
+                    // Aseguramos que venga como array de {origen, destino}
+                    if (Array.isArray(data)) setRutasDisponibles(data);
+                    else setRutasDisponibles([]);
                 } else {
                     usarRutasLocales();
                 }
-            } catch {
+            } catch (err) {
+                console.warn('No se pudo obtener rutas remotas, usando locales.', err);
                 usarRutasLocales();
             } finally {
                 setCargandoRutas(false);
@@ -138,10 +162,12 @@ export default function CrearViaje({ navigation }) {
         obtenerRutas();
     }, [conductorId]);
 
+    // ============================
     // TIPO VIAJE
-    const obtenerTipoViaje = (origen, destino) => {
-        const o = origen.toLowerCase();
-        const d = destino.toLowerCase();
+    // ============================
+    const obtenerTipoViaje = (origenStr, destinoStr) => {
+        const o = (origenStr || '').toLowerCase();
+        const d = (destinoStr || '').toLowerCase();
 
         if (o.includes('universidad') && d.includes('mutis')) return 'mutis';
         if (o.includes('universidad') && d.includes('cumbre')) return 'cumbre';
@@ -151,7 +177,9 @@ export default function CrearViaje({ navigation }) {
         return null;
     };
 
+    // ============================
     // CREAR VIAJE
+    // ============================
     const crearViaje = async () => {
         if (!origen || !destino) {
             Alert.alert('Error', 'Selecciona origen y destino.');
@@ -188,49 +216,75 @@ export default function CrearViaje({ navigation }) {
         }
     };
 
-    const origenesUnicos = [...new Set(rutasDisponibles.map(r => r.origen))];
+    const origenesUnicos = [...new Set(rutasDisponibles.map(r => r.origen || '').filter(Boolean))];
     const destinosDisponibles = origen
-        ? rutasDisponibles.filter(r => r.origen === origen).map(r => r.destino)
+        ? rutasDisponibles.filter(r => r.origen === origen).map(r => r.destino || '').filter(Boolean)
         : [];
 
-    const SelectorModal = ({ visible, onClose, options, onSelect, title, selectedValue }) => (
-        <Modal animationType="slide" transparent visible={visible}>
-            <View style={styles.modalOverlay}>
-                <View style={styles.modalContent}>
-                    <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle}>{title}</Text>
-                        <TouchableOpacity onPress={onClose}>
-                            <Ionicons name="close" size={28} color="#666" />
-                        </TouchableOpacity>
-                    </View>
+    // ============================
+    // MODAL SELECTOR (robusto)
+    // - acepta options: array de strings o array de objetos {label,value}
+    // - onSelect recibe el valor (string)
+    // ============================
+    const SelectorModal = ({ visible, onClose, options = [], onSelect, title, selectedValue }) => {
+        // Normalizar opciones a array de {label, value}
+        const opts = options.map(opt => {
+            if (opt == null) return null;
+            if (typeof opt === 'string' || typeof opt === 'number') return { label: String(opt), value: String(opt) };
+            if (typeof opt === 'object') {
+                // si es objeto {origen,destino} lo ignoramos aquí (esperamos strings)
+                if (opt.label && opt.value) return { label: String(opt.label), value: String(opt.value) };
+                // fallback: stringify
+                return { label: JSON.stringify(opt), value: JSON.stringify(opt) };
+            }
+            return null;
+        }).filter(Boolean);
 
-                    <ScrollView style={{ maxHeight: 300 }}>
-                        {options.map((option, index) => (
-                            <TouchableOpacity
-                                key={index}
-                                style={[
-                                    styles.optionItem,
-                                    selectedValue === option && styles.optionItemSelected
-                                ]}
-                                onPress={() => {
-                                    onSelect(option);
-                                    onClose();
-                                }}
-                            >
-                                <Text style={[
-                                    styles.optionText,
-                                    selectedValue === option && styles.optionTextSelected
-                                ]}>
-                                    {option}
-                                </Text>
+        return (
+            <Modal animationType="slide" transparent visible={visible}>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>{title}</Text>
+                            <TouchableOpacity onPress={onClose}>
+                                <Ionicons name="close" size={28} color="#666" />
                             </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                </View>
-            </View>
-        </Modal>
-    );
+                        </View>
 
+                        <ScrollView style={{ maxHeight: 300 }}>
+                            {opts.length === 0 && (
+                                <View style={{ padding: 20 }}>
+                                    <Text style={{ color: '#666' }}>No hay opciones disponibles</Text>
+                                </View>
+                            )}
+
+                            {opts.map((option, index) => {
+                                const isSelected = String(selectedValue) === option.value;
+                                return (
+                                    <TouchableOpacity
+                                        key={`${option.value}-${index}`}
+                                        style={[styles.optionItem, isSelected && styles.optionItemSelected]}
+                                        onPress={() => {
+                                            onSelect(option.value);
+                                            onClose();
+                                        }}
+                                    >
+                                        <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>
+                                            {option.label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
+        );
+    };
+
+    // ============================
+    // Render
+    // ============================
     if (creandoViaje) {
         return (
             <View style={styles.loadingFullScreen}>
@@ -239,6 +293,17 @@ export default function CrearViaje({ navigation }) {
             </View>
         );
     }
+
+    // Función para permitir cambiar el tipo manualmente tocando el icono (opcional)
+    const onSeleccionarTipoVehiculo = (tipo) => {
+        if (tipo === 'MOTO') {
+            setTipoVehiculo('MOTO');
+            setCupos(1);
+        } else {
+            setTipoVehiculo('COCHE');
+            setCupos(4);
+        }
+    };
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -269,13 +334,25 @@ export default function CrearViaje({ navigation }) {
                     <Text style={styles.subtitulo}>Tu vehículo</Text>
 
                     <View style={{ flexDirection: 'row', marginVertical: 10 }}>
+                        {/* MOTO (touchable para validar visualmente) */}
+                        {/* MOTO (NO táctil) */}
                         <View style={[styles.iconContainer, tipoVehiculo === 'MOTO' && styles.iconSeleccionado]}>
-                            <FontAwesome5 name="motorcycle" size={30} color={tipoVehiculo === 'MOTO' ? '#fff' : 'gray'} />
+                            <FontAwesome5
+                                name="motorcycle"
+                                size={30}
+                                color={tipoVehiculo === 'MOTO' ? '#fff' : 'gray'}
+                            />
                         </View>
 
-                        <View style={[styles.iconContainer, tipoVehiculo !== 'MOTO' && styles.iconSeleccionado]}>
-                            <Ionicons name="car-sport" size={30} color={tipoVehiculo !== 'MOTO' ? '#fff' : 'gray'} />
+                        {/* COCHE (NO táctil) */}
+                        <View style={[styles.iconContainer, tipoVehiculo === 'COCHE' && styles.iconSeleccionado]}>
+                            <Ionicons
+                                name="car-sport"
+                                size={30}
+                                color={tipoVehiculo === 'COCHE' ? '#fff' : 'gray'}
+                            />
                         </View>
+
                     </View>
 
                     {vehiculo && (
@@ -286,15 +363,13 @@ export default function CrearViaje({ navigation }) {
                     )}
                 </View>
 
-                {/* CUPOS FIJOS */}
+                {/* CUPOS */}
                 <View style={styles.cuposContainer}>
                     <Text style={styles.label}>Cupos disponibles:</Text>
-
                     <View style={styles.cuposFijosBox}>
                         <Ionicons name="people" size={24} color="#207636" />
                         <Text style={styles.cuposFijosTexto}>{cupos} cupos</Text>
                     </View>
-
                 </View>
 
                 {/* ORIGEN */}
@@ -304,10 +379,7 @@ export default function CrearViaje({ navigation }) {
                         style={styles.selectorButton}
                         onPress={() => setModalOrigenVisible(true)}
                     >
-                        <Text style={[
-                            styles.selectorText,
-                            !origen && styles.selectorPlaceholder
-                        ]}>
+                        <Text style={[styles.selectorText, !origen && styles.selectorPlaceholder]}>
                             {origen || 'Seleccione origen'}
                         </Text>
                         <Ionicons name="chevron-down" size={20} color="#666" />
@@ -322,10 +394,7 @@ export default function CrearViaje({ navigation }) {
                         onPress={() => setModalDestinoVisible(true)}
                         disabled={!origen}
                     >
-                        <Text style={[
-                            styles.selectorText,
-                            !destino && styles.selectorPlaceholder
-                        ]}>
+                        <Text style={[styles.selectorText, !destino && styles.selectorPlaceholder]}>
                             {destino || (origen ? 'Seleccione destino' : 'Seleccione origen primero')}
                         </Text>
                         <Ionicons name="chevron-down" size={20} color="#666" />
@@ -355,7 +424,7 @@ export default function CrearViaje({ navigation }) {
                 visible={modalDestinoVisible}
                 onClose={() => setModalDestinoVisible(false)}
                 options={destinosDisponibles}
-                onSelect={setDestino}
+                onSelect={(value) => setDestino(value)}
                 title="Selecciona Destino"
                 selectedValue={destino}
             />
@@ -367,13 +436,16 @@ const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: '#fff', paddingTop: Platform.OS === 'android' ? 30 : 0 },
     container: { padding: 20 },
     titulo: { fontSize: 28, fontWeight: 'bold', color: '#207636', textAlign: 'center', marginBottom: 20 },
+
     horarioContainer: { marginBottom: 10 },
     horarioCard: { flexDirection: 'row', backgroundColor: '#f8f8f8', padding: 15, borderRadius: 12, marginBottom: 10 },
     horarioInfo: { marginLeft: 15 },
     horarioLabel: { fontSize: 14, color: '#666' },
     horarioValor: { fontSize: 16, fontWeight: '600', color: '#333' },
+
     vehiculoSection: { alignItems: 'center', marginBottom: 20 },
     subtitulo: { fontSize: 18, fontWeight: '600', color: '#444' },
+
     iconContainer: {
         padding: 15,
         marginHorizontal: 10,
@@ -399,10 +471,10 @@ const styles = StyleSheet.create({
         borderRadius: 12
     },
     cuposFijosTexto: { fontSize: 18, fontWeight: 'bold', marginLeft: 10, color: '#207636' },
-    infoText: { marginTop: 5, fontSize: 12, color: '#666', fontStyle: 'italic' },
 
     inputContainer: { marginBottom: 15 },
     label: { fontSize: 16, fontWeight: '600', marginBottom: 5 },
+
     selectorButton: {
         flexDirection: 'row',
         justifyContent: 'space-between',

@@ -10,6 +10,7 @@ import {
     Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { FontAwesome5 } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import ViajesDisponiblesService from '../services/ViajesDisponiblesService';
 import AlertService from '../utils/AlertService';
@@ -18,13 +19,19 @@ export default function BuscarViaje({ navigation }) {
     const { usuario } = useAuth();
     const [viajes, setViajes] = useState([]);
     const [viajesFiltrados, setViajesFiltrados] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(true); // ahora controla sólo la sección de resultados
     const [refreshing, setRefreshing] = useState(false);
     const [filtroOrigen, setFiltroOrigen] = useState(null);
     const [filtroDestino, setFiltroDestino] = useState(null);
     const [modalVisible, setModalVisible] = useState(false);
     const [viajeSeleccionado, setViajeSeleccionado] = useState(null);
     const [uniendose, setUniendose] = useState(false);
+
+    // selectores
+    const [modalSelectorVisible, setModalSelectorVisible] = useState(false);
+    const [selectorOptions, setSelectorOptions] = useState([]);
+    const [selectorTitle, setSelectorTitle] = useState('');
+    const [selectorTarget, setSelectorTarget] = useState(null); // 'origen' | 'destino'
 
     useEffect(() => {
         cargarViajes();
@@ -36,33 +43,51 @@ export default function BuscarViaje({ navigation }) {
 
     const cargarViajes = async () => {
         try {
+            // mostramos indicador en la zona de resultados
             setLoading(true);
 
-            // Verificar si el pasajero ya tiene un viaje activo
+            // Si hay usuario, verificar si ya tiene viaje activo (servicio puede devolver tieneViajeActivo)
             if (usuario?.id) {
-                const verificacion = await ViajesDisponiblesService.verificarViajeActivo(usuario.id);
+                try {
+                    const verificacion = await ViajesDisponiblesService.verificarViajeActivo(usuario.id);
 
-                if (verificacion.success && verificacion.tieneViajeActivo) {
-                    // Si el backend devolvió el viaje, navegamos al detalle del viaje activo
-                    if (verificacion.data) {
-                        AlertService.alert(
-                            'Viaje Activo',
-                            'Ya tienes un viaje activo. Te llevaremos al detalle de tu viaje actual.',
-                            [{ text: 'Ver mi viaje', onPress: () => navigation.replace('ViajeActivo', { viaje: verificacion.data }) }]
-                        );
-                        return;
-                    } else {
-                        // Tiene viaje activo pero sin datos (caso raro) -> mostrar alerta y no permitir unirse
-                        AlertService.alert('Viaje Activo', 'Ya tienes un viaje activo. No puedes unirte a otro hasta que termine.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
-                        return;
+                    if (verificacion?.tieneViajeActivo) {
+                        // Si el backend devuelve datos del viaje, lo mostramos
+                        if (verificacion.data) {
+                            AlertService.alert(
+                                'Viaje Activo',
+                                'Ya tienes un viaje activo. Te llevaremos al detalle de tu viaje actual.',
+                                [{ text: 'Ver mi viaje', onPress: () => navigation.replace('ViajeActivo', { viaje: verificacion.data }) }]
+                            );
+                            return;
+                        } else {
+                            // Tiene viaje activo sin datos -> no permitir unirse
+                            AlertService.alert('Viaje Activo', 'Ya tienes un viaje activo. No puedes unirte a otro hasta que termine.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+                            return;
+                        }
                     }
+                } catch (err) {
+                    // Si falla la verificación no bloqueamos la carga de viajes (fallo tolerante)
+                    console.warn('No se pudo verificar viaje activo (no crítico):', err);
                 }
             }
 
             const result = await ViajesDisponiblesService.obtenerViajesDisponibles();
 
             if (result.success) {
-                setViajes(result.data);
+                // Normalizamos la estructura mínima que usamos (asegurar campos)
+                const prepared = (result.data || []).map(v => ({
+                    ...v,
+                    origen: v.origen || '',
+                    destino: v.destino || '',
+                    vehiculo: v.vehiculo || null,
+                    conductor: v.conductor || { nombre: 'Conductor' },
+                    cuposDisponibles: typeof v.cuposDisponibles === 'number' ? v.cuposDisponibles : (v.cuposMaximos - (v.cuposOcupados ?? 0)),
+                    cuposMaximos: v.cuposMaximos ?? 0,
+                    cuposOcupados: v.cuposOcupados ?? 0,
+                }));
+
+                setViajes(prepared);
             } else {
                 AlertService.alert('Error', result.error);
                 setViajes([]);
@@ -83,32 +108,47 @@ export default function BuscarViaje({ navigation }) {
     };
 
     const aplicarFiltros = () => {
-        let v = [...viajes];
+        let filtro = [...viajes];
 
-        if (filtroOrigen) {
-            v = v.filter(x => x.origen === filtroOrigen);
-        }
+        if (filtroOrigen) filtro = filtro.filter(v => v.origen === filtroOrigen);
+        if (filtroDestino) filtro = filtro.filter(v => v.destino === filtroDestino);
 
-        if (filtroDestino) {
-            v = v.filter(x => x.destino === filtroDestino);
-        }
-
-        setViajesFiltrados(v);
+        setViajesFiltrados(filtro);
     };
 
     const obtenerOrigenes = () => {
-        const origenes = [...new Set(viajes.map(v => v.origen))];
+        const origenes = [...new Set(viajes.map(v => v.origen).filter(Boolean))];
         return origenes.sort();
     };
 
     const obtenerDestinos = () => {
-        let destinos = viajes.map(v => v.destino);
+        let destinos = viajes.map(v => v.destino).filter(Boolean);
 
-        if (filtroOrigen) {
-            destinos = viajes.filter(v => v.origen === filtroOrigen).map(v => v.destino);
-        }
+        if (filtroOrigen) destinos = viajes.filter(v => v.origen === filtroOrigen).map(v => v.destino).filter(Boolean);
 
         return [...new Set(destinos)].sort();
+    };
+
+    const abrirSelector = (target) => {
+        if (target === 'origen') {
+            setSelectorOptions(obtenerOrigenes());
+            setSelectorTitle('Selecciona Origen');
+        } else {
+            setSelectorOptions(obtenerDestinos());
+            setSelectorTitle('Selecciona Destino');
+        }
+        setSelectorTarget(target);
+        setModalSelectorVisible(true);
+    };
+
+    const onSelectOption = (option) => {
+        setModalSelectorVisible(false);
+        if (selectorTarget === 'origen') {
+            setFiltroOrigen(option);
+            setFiltroDestino(null); // limpiar destino al cambiar origen
+        } else {
+            setFiltroDestino(option);
+        }
     };
 
     const handleVerDetalleViaje = (viaje) => {
@@ -135,7 +175,7 @@ export default function BuscarViaje({ navigation }) {
                     'Te has unido al viaje exitosamente. El conductor te contactará pronto.',
                     [{
                         text: 'Ver Mi Viaje',
-                        onPress: () => navigation.replace('ViajeActivo', { viaje: result.data })
+                        onPress: () => navigation.replace('HomePasajero')
                     }]
                 );
             } else {
@@ -149,9 +189,26 @@ export default function BuscarViaje({ navigation }) {
         }
     };
 
+    const obtenerIconoVehiculo = (tipo) => {
+        if (!tipo) return 'car-sport';
+        const t = tipo.toString().toUpperCase();
+        if (t.includes('MOTO') || t.includes('MOTOCICLETA')) return 'motorcycle'; // usaremos FontAwesome5
+        // por defecto carro
+        return 'car-sport'; // Ionicons
+    };
+
+    const renderVehiculoIcon = (tipo) => {
+        const iconName = obtenerIconoVehiculo(tipo);
+        if (iconName === 'motorcycle') {
+            return <FontAwesome5 name="motorcycle" size={32} color="#207636" />;
+        }
+        return <Ionicons name="car-sport" size={32} color="#207636" />;
+    };
+
     const renderViajeCard = (viaje) => {
-        const iconoVehiculo = ViajesDisponiblesService.obtenerIconoVehiculo(viaje.vehiculo?.tipo);
-        const horaSalida = ViajesDisponiblesService.formatearHoraSalida(viaje.horaSalida);
+        const horaSalida = ViajesDisponiblesService.formatearHoraSalida
+            ? ViajesDisponiblesService.formatearHoraSalida(viaje.horaSalida)
+            : (viaje.horaSalida ? new Date(viaje.horaSalida).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : '');
 
         return (
             <TouchableOpacity
@@ -162,7 +219,7 @@ export default function BuscarViaje({ navigation }) {
             >
                 <View style={styles.cardHeader}>
                     <View style={styles.iconoVehiculoContainer}>
-                        <Ionicons name={iconoVehiculo} size={32} color="#207636" />
+                        {renderVehiculoIcon(viaje.vehiculo?.tipo)}
                     </View>
 
                     <View style={styles.infoContainer}>
@@ -194,7 +251,7 @@ export default function BuscarViaje({ navigation }) {
 
                     <View style={styles.infoRow}>
                         <Ionicons name="person-outline" size={18} color="#666" />
-                        <Text style={styles.infoText}>{viaje.conductor.nombre}</Text>
+                        <Text style={styles.infoText}>{viaje.conductor?.nombre || 'Conductor'}</Text>
                     </View>
 
                     <View style={styles.infoRow}>
@@ -230,73 +287,7 @@ export default function BuscarViaje({ navigation }) {
         );
     };
 
-    if (loading) {
-        return (
-            <View style={styles.container}>
-
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity
-                        style={styles.botonAtras}
-                        onPress={() => navigation.goBack()}
-                    >
-                        <Ionicons name="arrow-back" size={28} color="#fff" />
-                    </TouchableOpacity>
-
-                    <Text style={styles.headerTitle}>Buscar Viaje</Text>
-                    <View style={{ width: 28 }} />
-                </View>
-
-                <ScrollView
-                    contentContainerStyle={styles.scrollContainer}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={onRefresh}
-                            colors={['#207636']}
-                        />
-                    }
-                >
-                    {/* Filtros */}
-                    { /* (todo tu código de filtros queda igual) */ }
-
-                    {/* Lista de viajes, con loading en la zona de la lista */}
-                    {loading ? (
-                        <View style={{ paddingTop: 80, alignItems: 'center' }}>
-                            <ActivityIndicator size="large" color="#207636" />
-                            <Text style={{ marginTop: 12, color: '#666' }}>
-                                Cargando viajes disponibles...
-                            </Text>
-                        </View>
-                    ) : viajesFiltrados.length === 0 ? (
-                        <View style={styles.emptyContainer}>
-                            <Ionicons name="car-outline" size={80} color="#ccc" />
-                            <Text style={styles.emptyText}>
-                                {viajes.length === 0
-                                    ? 'No hay viajes disponibles en este momento'
-                                    : 'No hay viajes que coincidan con los filtros'}
-                            </Text>
-                            <Text style={styles.emptySubtext}>
-                                Los viajes aparecerán aquí cuando los conductores los publiquen
-                            </Text>
-                        </View>
-                    ) : (
-                        <>
-                            <Text style={styles.resultadosText}>
-                                {viajesFiltrados.length} {viajesFiltrados.length === 1 ? 'viaje disponible' : 'viajes disponibles'}
-                            </Text>
-
-                            {viajesFiltrados.map(viaje => renderViajeCard(viaje))}
-                        </>
-                    )}
-                </ScrollView>
-
-                { /* modal queda igual */ }
-            </View>
-        );
-
-    }
-
+    // --- UI ---
     return (
         <View style={styles.container}>
             {/* Header */}
@@ -331,7 +322,7 @@ export default function BuscarViaje({ navigation }) {
                             <Text style={styles.filtroLabel}>Origen</Text>
                             <TouchableOpacity
                                 style={styles.filtroButton}
-                                onPress={() => {/* Implementar selector */}}
+                                onPress={() => abrirSelector('origen')}
                             >
                                 <Text style={styles.filtroButtonText}>
                                     {filtroOrigen || 'Todos'}
@@ -344,7 +335,8 @@ export default function BuscarViaje({ navigation }) {
                             <Text style={styles.filtroLabel}>Destino</Text>
                             <TouchableOpacity
                                 style={styles.filtroButton}
-                                onPress={() => {/* Implementar selector */}}
+                                onPress={() => abrirSelector('destino')}
+                                disabled={obtenerDestinos().length === 0}
                             >
                                 <Text style={styles.filtroButtonText}>
                                     {filtroDestino || 'Todos'}
@@ -368,28 +360,39 @@ export default function BuscarViaje({ navigation }) {
                     )}
                 </View>
 
-                {/* Lista de viajes */}
-                {viajesFiltrados.length === 0 ? (
-                    <View style={styles.emptyContainer}>
-                        <Ionicons name="car-outline" size={80} color="#ccc" />
-                        <Text style={styles.emptyText}>
-                            {viajes.length === 0
-                                ? 'No hay viajes disponibles en este momento'
-                                : 'No hay viajes que coincidan con los filtros'}
-                        </Text>
-                        <Text style={styles.emptySubtext}>
-                            Los viajes aparecerán aquí cuando los conductores los publiquen
-                        </Text>
-                    </View>
-                ) : (
-                    <>
-                        <Text style={styles.resultadosText}>
-                            {viajesFiltrados.length} {viajesFiltrados.length === 1 ? 'viaje disponible' : 'viajes disponibles'}
-                        </Text>
+                {/* Zona de resultados: si está cargando mostramos indicador aquí, no pantalla completa */}
+                <View style={{ minHeight: 200 }}>
+                    {loading ? (
+                        <View style={styles.loadingInline}>
+                            <ActivityIndicator size="large" color="#207636" />
+                            <Text style={styles.loadingText}>Buscando viajes disponibles...</Text>
+                        </View>
+                    ) : (
+                        <>
+                            {viajesFiltrados.length === 0 ? (
+                                <View style={styles.emptyContainer}>
+                                    <Ionicons name="car-outline" size={80} color="#ccc" />
+                                    <Text style={styles.emptyText}>
+                                        {viajes.length === 0
+                                            ? 'No hay viajes disponibles en este momento'
+                                            : 'No hay viajes que coincidan con los filtros'}
+                                    </Text>
+                                    <Text style={styles.emptySubtext}>
+                                        Los viajes aparecerán aquí cuando los conductores los publiquen
+                                    </Text>
+                                </View>
+                            ) : (
+                                <>
+                                    <Text style={styles.resultadosText}>
+                                        {viajesFiltrados.length} {viajesFiltrados.length === 1 ? 'viaje disponible' : 'viajes disponibles'}
+                                    </Text>
 
-                        {viajesFiltrados.map(viaje => renderViajeCard(viaje))}
-                    </>
-                )}
+                                    {viajesFiltrados.map(viaje => renderViajeCard(viaje))}
+                                </>
+                            )}
+                        </>
+                    )}
+                </View>
             </ScrollView>
 
             {/* Modal de detalle del viaje */}
@@ -422,14 +425,14 @@ export default function BuscarViaje({ navigation }) {
                                 <View style={styles.modalSection}>
                                     <Text style={styles.modalSectionTitle}>🕐 Hora de Salida</Text>
                                     <Text style={styles.modalInfoText}>
-                                        {new Date(viajeSeleccionado.horaSalida).toLocaleString('es-CO', {
+                                        {viajeSeleccionado.horaSalida ? new Date(viajeSeleccionado.horaSalida).toLocaleString('es-CO', {
                                             weekday: 'long',
                                             year: 'numeric',
                                             month: 'long',
                                             day: 'numeric',
                                             hour: '2-digit',
                                             minute: '2-digit'
-                                        })}
+                                        }) : 'Hora no disponible'}
                                     </Text>
                                 </View>
 
@@ -437,10 +440,10 @@ export default function BuscarViaje({ navigation }) {
                                 <View style={styles.modalSection}>
                                     <Text style={styles.modalSectionTitle}>👤 Conductor</Text>
                                     <Text style={styles.modalInfoText}>
-                                        {viajeSeleccionado.conductor.nombre}
+                                        {viajeSeleccionado.conductor?.nombre}
                                     </Text>
                                     <Text style={styles.modalInfoSubtext}>
-                                        Tel: {viajeSeleccionado.conductor.celular}
+                                        Tel: {viajeSeleccionado.conductor?.celular || 'No disponible'}
                                     </Text>
                                 </View>
 
@@ -512,6 +515,40 @@ export default function BuscarViaje({ navigation }) {
                     </View>
                 </Modal>
             )}
+
+            {/* SelectorModal para filtros (origen/destino) */}
+            <Modal animationType="slide" transparent visible={modalSelectorVisible}>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>{selectorTitle}</Text>
+                            <TouchableOpacity onPress={() => setModalSelectorVisible(false)}>
+                                <Ionicons name="close" size={28} color="#666" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView style={{ maxHeight: 300 }}>
+                            {selectorOptions.length === 0 ? (
+                                <View style={{ padding: 20 }}>
+                                    <Text style={{ color: '#666' }}>No hay opciones</Text>
+                                </View>
+                            ) : (
+                                selectorOptions.map((option, index) => (
+                                    <TouchableOpacity
+                                        key={index}
+                                        style={[styles.optionItem, ((selectorTarget === 'origen' && option === filtroOrigen) || (selectorTarget === 'destino' && option === filtroDestino)) && styles.optionItemSelected]}
+                                        onPress={() => onSelectOption(option)}
+                                    >
+                                        <Text style={[styles.optionText, ((selectorTarget === 'origen' && option === filtroOrigen) || (selectorTarget === 'destino' && option === filtroDestino)) && styles.optionTextSelected]}>
+                                            {option}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))
+                            )}
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -540,6 +577,11 @@ const styles = StyleSheet.create({
     },
     scrollContainer: {
         paddingBottom: 30,
+    },
+    loadingInline: {
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 40,
     },
     loadingContainer: {
         flex: 1,
@@ -726,6 +768,7 @@ const styles = StyleSheet.create({
         borderTopRightRadius: 20,
         maxHeight: '85%',
     },
+    modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20 },
     modalHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -822,4 +865,10 @@ const styles = StyleSheet.create({
     botonDeshabilitado: {
         opacity: 0.6,
     },
+
+    // selector modal options
+    optionItem: { padding: 18, borderBottomWidth: 1, borderBottomColor: '#f5f5f5' },
+    optionItemSelected: { backgroundColor: '#e8f5e9' },
+    optionText: { fontSize: 16 },
+    optionTextSelected: { fontWeight: 'bold', color: '#207636' },
 });
