@@ -1,4 +1,3 @@
-
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View, ActivityIndicator } from 'react-native';
 import 'react-native-gesture-handler';
@@ -15,12 +14,11 @@ import HomeConductor from './pages/HomeConductor';
 import RegistroUsuario from './pages/RegistroUsuario';
 import ChatScreen from './pages/chat';
 import CrearViaje from './pages/CrearViaje';
-import Perfil from './pages/Perfil';  
-import RegistrarVehiculo from './pages/RegistrarVehiculo';  
+import Perfil from './pages/Perfil';
+import RegistrarVehiculo from './pages/RegistrarVehiculo';
 import MisVehiculos from './pages/MisVehiculos';
 import HistorialViajes from './pages/HistorialViajes';
 import ViajeActivo from './pages/ViajeActivo';
-
 
 const linking = {
     prefixes: ['http://localhost:8081', 'https://localhost:8081'],
@@ -44,39 +42,6 @@ const linking = {
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-
-function HistorialConductorScreen() {
-    return null; 
-}
-
-function PerfilScreen() {
-    return null; 
-}
-
-function MisViajesScreen() {
-    return null; 
-}
-
-function HistorialPasajeroScreen() {
-    return null; 
-}
-
-function PerfilPasajeroScreen() {
-    return null; 
-}
-
-
-function BuscarViajesScreen() {
-    return null; 
-}
-
-
-
-function MisVehiculosScreen() {
-    return null; 
-}
-
-
 function ConductorTabs() {
     return (
         <Tab.Navigator
@@ -97,7 +62,7 @@ function ConductorTabs() {
                     paddingBottom: 8,
                     paddingTop: 5,
                 },
-                tabBarIcon: ({ focused, color, size }) => {
+                tabBarIcon: ({ focused, color }) => {
                     let iconName;
 
                     switch (route.name) {
@@ -118,25 +83,24 @@ function ConductorTabs() {
                 },
             })}
         >
-            <Tab.Screen 
-                name="Inicio" 
+            <Tab.Screen
+                name="Inicio"
                 component={HomeConductor}
                 options={{ tabBarLabel: 'Inicio' }}
             />
-            <Tab.Screen 
-                name="Historial Viajes" 
+            <Tab.Screen
+                name="Historial Viajes"
                 component={HistorialViajes}
                 options={{ tabBarLabel: 'Historial Viajes' }}
             />
-            <Tab.Screen 
-                name="Perfil" 
+            <Tab.Screen
+                name="Perfil"
                 component={Perfil}
                 options={{ tabBarLabel: 'Perfil' }}
             />
         </Tab.Navigator>
     );
 }
-
 
 function PasajeroTabs() {
     return (
@@ -158,7 +122,7 @@ function PasajeroTabs() {
                     paddingBottom: 8,
                     paddingTop: 5,
                 },
-                tabBarIcon: ({ focused, color, size }) => {
+                tabBarIcon: ({ focused, color }) => {
                     let iconName;
 
                     switch (route.name) {
@@ -179,25 +143,24 @@ function PasajeroTabs() {
                 },
             })}
         >
-            <Tab.Screen 
-                name="Inicio" 
+            <Tab.Screen
+                name="Inicio"
                 component={HomePasajero}
                 options={{ tabBarLabel: 'Inicio' }}
             />
-            <Tab.Screen 
-                name="Historial Viajes" 
+            <Tab.Screen
+                name="Historial Viajes"
                 component={HistorialViajes}
                 options={{ tabBarLabel: 'Historial Viajes' }}
             />
-            <Tab.Screen 
-                name="Perfil" 
+            <Tab.Screen
+                name="Perfil"
                 component={Perfil}
                 options={{ tabBarLabel: 'Perfil' }}
             />
         </Tab.Navigator>
     );
 }
-
 
 function AppNavigator() {
     const { usuario, loading } = useAuth();
@@ -213,26 +176,22 @@ function AppNavigator() {
     return (
         <Stack.Navigator screenOptions={{ headerShown: false }}>
             {!usuario ? (
-                
                 <>
                     <Stack.Screen name="Login" component={Login} />
                     <Stack.Screen name="RegistroUsuario" component={RegistroUsuario} />
                 </>
             ) : (
-                //segun rol
                 <>
                     {usuario.tipo === 'CONDUCTOR' || usuario.tipoUsuario === 'CONDUCTOR' ? (
-                        
                         <>
-                             <Stack.Screen 
-                                name="HomeConductor" 
+                            <Stack.Screen
+                                name="HomeConductor"
                                 component={ConductorTabs}
                                 options={{ gestureEnabled: false }}
                             />
-                            
-                            
-                            <Stack.Screen 
-                                name="CrearViaje" 
+
+                            <Stack.Screen
+                                name="CrearViaje"
                                 component={CrearViaje}
                                 options={{
                                     presentation: 'card',
@@ -241,17 +200,28 @@ function AppNavigator() {
                                     headerBackTitle: 'Volver',
                                 }}
                             />
-                            <Stack.Screen 
-                                name="RegistrarVehiculo" 
+
+                            {/* 🔥 AQUÍ ESTÁ LA PANTALLA QUE LE FALTABA */}
+                            <Stack.Screen
+                                name="ViajeActivo"
+                                component={ViajeActivo}
+                                options={{
+                                    headerShown: false,
+                                    gestureEnabled: false,
+                                }}
+                            />
+
+                            <Stack.Screen
+                                name="RegistrarVehiculo"
                                 component={RegistrarVehiculo}
                                 options={{
                                     presentation: 'card',
                                     headerShown: false,
-                                    headerTitle: 'Registrar Vehículo',
                                 }}
                             />
-                            <Stack.Screen 
-                                name="MisVehiculos" 
+
+                            <Stack.Screen
+                                name="MisVehiculos"
                                 component={MisVehiculos}
                                 options={{
                                     presentation: 'card',
@@ -261,19 +231,16 @@ function AppNavigator() {
                             />
                         </>
                     ) : (
-                       
                         <>
-                            
-                            <Stack.Screen 
-                                name="HomePasajero" 
+                            <Stack.Screen
+                                name="HomePasajero"
                                 component={PasajeroTabs}
                                 options={{ gestureEnabled: false }}
                             />
-                            
-                            
-                            <Stack.Screen 
-                                name="BuscarViajes" 
-                                component={BuscarViajesScreen}
+
+                            <Stack.Screen
+                                name="BuscarViajes"
+                                component={() => null}
                                 options={{
                                     presentation: 'card',
                                     headerShown: true,
@@ -288,7 +255,6 @@ function AppNavigator() {
     );
 }
 
-
 export default function App() {
     return (
         <AuthProvider>
@@ -301,12 +267,6 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#fff',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
