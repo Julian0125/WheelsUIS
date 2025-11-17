@@ -146,7 +146,7 @@ export default function HistorialViajes({ navigation }) {
 
     const renderFiltros = () => (
         <View style={styles.filtrosContainer}>
-            {['TODOS', 'COMPLETADO', 'EN_CURSO', 'CANCELADO'].map((estado) => (
+            {['TODOS', 'FINALIZADO', 'CANCELADO'].map((estado) => (
                 <TouchableOpacity
                     key={estado}
                     style={[
@@ -160,7 +160,6 @@ export default function HistorialViajes({ navigation }) {
                         filtro === estado && styles.filtroTextoActivo
                     ]}>
                         {estado === 'TODOS' ? 'TODOS' : 
-                         estado === 'EN_CURSO' ? 'EN CURSO' :
                          ViajeService.obtenerEstadoTexto(estado).toUpperCase()}
                     </Text>
                 </TouchableOpacity>
@@ -174,8 +173,8 @@ export default function HistorialViajes({ navigation }) {
             <Text style={styles.vacioTexto}>No hay viajes en el historial</Text>
             <Text style={styles.vacioSubtexto}>
                 {esPasajero 
-                    ? 'Los viajes que realices aparecerán aquí'
-                    : 'Los viajes que crees aparecerán aquí'}
+                    ? 'Los viajes finalizados o cancelados aparecerán aquí'
+                    : 'Los viajes finalizados o cancelados aparecerán aquí'}
             </Text>
         </View>
     );
@@ -240,7 +239,7 @@ const styles = StyleSheet.create({
     header: {
         backgroundColor: '#207636ff',
         padding: 20,
-        paddingTop: 40,
+        paddingTop: 55,
     },
     titulo: {
         fontSize: 24,
@@ -255,7 +254,7 @@ const styles = StyleSheet.create({
     filtrosContainer: {
         flexDirection: 'row',
         backgroundColor: 'white',
-        padding: 10,
+        padding: 11,
         justifyContent: 'space-around',
         borderBottomWidth: 1,
         borderBottomColor: '#e0e0e0',
