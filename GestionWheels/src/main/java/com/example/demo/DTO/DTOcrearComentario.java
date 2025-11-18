@@ -10,4 +10,5 @@ import lombok.Setter;
 public class DTOcrearComentario {
     private int usuarioId;
     private String texto;
+    private int viajeId;
 }

@@ -50,7 +50,7 @@ public class Viaje {
         joinColumns = @JoinColumn(name = "viaje_id"),//indica el nombre de la columna que referencia la tabla actual
         inverseJoinColumns = @JoinColumn(name = "pasajero_id") // indica la columna de la otra entidad
     )
-    @JsonIgnoreProperties({"historialViajes", "viajes"})
+    @JsonIgnoreProperties({"historialViajes", "viajes", "viajeActual"})
     private List<Pasajero> pasajeros = new ArrayList<>();
     
     private int cuposMaximos;
