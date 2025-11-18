@@ -6,27 +6,25 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import com.example.demo.DTO.DTOcrearComentario;
 import com.example.demo.DTO.RutasPredefinidas;
+import com.example.demo.model.*;
+import com.example.demo.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.CrossOrigin;
 
 import com.example.demo.builder.ViajeDirector;
-import com.example.demo.model.Chat;
-import com.example.demo.model.Conductor;
-import com.example.demo.model.EstadoViaje;
-import com.example.demo.model.Pasajero;
-import com.example.demo.model.Viaje;
-import com.example.demo.repository.ConductorRepository;
-import com.example.demo.repository.PasajeroRepository;
-import com.example.demo.repository.ViajeRepository;
 
 import jakarta.transaction.Transactional;
 @CrossOrigin(origins = "http://localhost:8081")
 @Service
 public class ViajeService {
-
+	@Autowired
+	private ComentarioRepository comentarioRepository;
+	@Autowired
+	private UsuarioRepository usuarioRepository;
 	@Autowired
 	private ViajeRepository viajeRepository;
 	@Autowired
@@ -283,9 +281,4 @@ public class ViajeService {
 	}
 
 
-
-
-
-
-
-}
+	}

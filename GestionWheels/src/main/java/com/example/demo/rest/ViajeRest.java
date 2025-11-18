@@ -3,7 +3,9 @@ package com.example.demo.rest;
 import java.util.List;
 import java.util.Map;
 
+import com.example.demo.DTO.DTOcrearComentario;
 import com.example.demo.DTO.RutasPredefinidas;
+import com.example.demo.model.Comentario;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -132,4 +134,9 @@ public class ViajeRest {
 	) {
 		return viajeService.finalizarViaje(idViaje, idConductor);
 	}
-}
+
+
+
+
+	}
+
