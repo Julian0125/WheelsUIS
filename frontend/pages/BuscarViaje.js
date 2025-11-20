@@ -14,6 +14,7 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import ViajesDisponiblesService from '../services/ViajesDisponiblesService';
 import AlertService from '../utils/AlertService';
+import ViajeService from '../services/ViajeService';
 
 export default function BuscarViaje({ navigation }) {
     const { usuario } = useAuth();
@@ -168,16 +169,12 @@ export default function BuscarViaje({ navigation }) {
             );
 
             if (result.success) {
+                // guardar viaje activo en storage
+                await ViajeService.guardarViajeActual(result.data);
+
                 setModalVisible(false);
 
-                AlertService.alert(
-                    '✅ ¡Éxito!',
-                    'Te has unido al viaje exitosamente. El conductor te contactará pronto.',
-                    [{
-                        text: 'Ver Mi Viaje',
-                        onPress: () => navigation.replace('HomePasajero')
-                    }]
-                );
+                navigation.replace("ViajeActivoPasajero", { viaje: result.data });
             } else {
                 AlertService.alert('Error', result.error);
             }
@@ -188,6 +185,7 @@ export default function BuscarViaje({ navigation }) {
             setUniendose(false);
         }
     };
+
 
     const obtenerIconoVehiculo = (tipo) => {
         if (!tipo) return 'car-sport';

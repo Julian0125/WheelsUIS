@@ -20,6 +20,7 @@ import MisVehiculos from './pages/MisVehiculos';
 import HistorialViajes from './pages/HistorialViajes';
 import ViajeActivo from './pages/ViajeActivo';
 import BuscarViaje from './pages/BuscarViaje';
+import ViajeActivoPasajero from "./pages/ViajeActivoPasajero";
 
 
 const linking = {
@@ -37,6 +38,7 @@ const linking = {
             MisVehiculos: 'MisVehiculos',
             HistorialViajes: 'HistorialViajes',
             ViajeActivo: 'ViajeActivo',
+            ViajeActivoPasajero: 'ViajeActivoPasajero',
         },
     },
 };
@@ -249,18 +251,25 @@ function AppNavigator() {
                                 }}
                             />
 
+                            <Stack.Screen
+                                name="ViajeActivoPasajero"
+                                component={ViajeActivoPasajero}
+                                options={{ headerShown: false, gestureEnabled: false }}
+                            />
+
+
                         </>
                     )}
                 </>
             )}
-           <Stack.Screen
+            <Stack.Screen
                 name="Chat"
                 component={ChatScreen}
                 options={{
                     headerShown: true,
                     headerTitle: 'Chat del Viaje',
                     headerBackTitle: 'Volver'
-               }} 
+                }}
             />
         </Stack.Navigator>
     );
