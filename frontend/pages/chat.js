@@ -61,7 +61,7 @@ export default function ChatScreen({ route, navigation }) {
   }, [usuario, viaje.id, chatHabilitado]);
 
   const conectarWebSocket = () => {
-    console.log(`🔗 Conectando al chat del viaje ${viaje.id}...`);
+    console.log(`Conectando al chat del viaje ${viaje.id}...`);
     
     stompClient.current = new Client({
       ...(Platform.OS === 'web'
@@ -73,18 +73,18 @@ export default function ChatScreen({ route, navigation }) {
       heartbeatOutgoing: 4000,
 
       onConnect: () => {
-        console.log('✅ Conectado al servidor WebSocket');
+        console.log('Conectado al servidor WebSocket');
         setServerState('Conectado');
         setConnected(true);
 
         // Suscribirse al topic del viaje
         const topic = `/topic/viaje/${viaje.id}`;
-        console.log(`📡 Suscrito a: ${topic}`);
+        console.log(`Suscrito a: ${topic}`);
         
         stompClient.current.subscribe(topic, (message) => {
           try {
             const receivedMessage = JSON.parse(message.body);
-            console.log('📨 Mensaje recibido:', receivedMessage);
+            console.log('Mensaje recibido:', receivedMessage);
             
             setMessages((prevMessages) => [
               ...prevMessages,
@@ -97,25 +97,25 @@ export default function ChatScreen({ route, navigation }) {
               }
             ]);
           } catch (error) {
-            console.error('❌ Error al parsear mensaje:', error);
+            console.error('Error al parsear mensaje:', error);
           }
         });
       },
 
       onDisconnect: () => {
-        console.log('🔌 Desconectado del servidor');
+        console.log('Desconectado del servidor');
         setServerState('Desconectado');
         setConnected(false);
       },
 
       onStompError: (frame) => {
-        console.error('❌ Error STOMP:', frame.headers.message);
+        console.error('Error STOMP:', frame.headers.message);
         setServerState('Error: ' + frame.headers.message);
         setConnected(false);
       },
 
       onWebSocketError: (error) => {
-        console.error('❌ Error WebSocket:', error);
+        console.error('Error WebSocket:', error);
         setServerState('Error de conexión. Verifica tu red y la IP del servidor.');
         setConnected(false);
       }
@@ -160,7 +160,7 @@ export default function ChatScreen({ route, navigation }) {
 
       setMessageText('');
     } catch (error) {
-      console.error('❌ Error al enviar mensaje:', error);
+      console.error('Error al enviar mensaje:', error);
       Alert.alert('Error', 'No se pudo enviar el mensaje');
     }
   };
