@@ -1,5 +1,6 @@
 package com.example.demo.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -17,9 +18,11 @@ public class Mensaje {
 
     @ManyToOne
     @JoinColumn(name = "usuario_id")
+    @JsonIgnoreProperties({"viajes", "viajeActual", "vehiculo"})
     private Usuario autor;
 
     @ManyToOne
     @JoinColumn(name = "chat_id")
+    @JsonIgnoreProperties({"mensajes", "viaje"})
     private Chat chat;
 }
