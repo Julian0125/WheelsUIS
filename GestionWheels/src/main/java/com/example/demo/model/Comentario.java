@@ -2,6 +2,7 @@ package com.example.demo.model;
 
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -21,7 +22,6 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class Comentario {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -32,9 +32,11 @@ public class Comentario {
 
     @ManyToOne
     @JoinColumn(name = "viaje_id")
+    @JsonIgnoreProperties({"comentarios", "pasajeros", "conductor", "coordenadas"})
     private Viaje viaje;
 
     @ManyToOne
     @JoinColumn(name = "usuario_id")
+    @JsonIgnoreProperties({"viajeActual", "historialViajes", "viajes"})
     private Usuario usuario; // quién comentó (puede ser pasajero o conductor)
 }
