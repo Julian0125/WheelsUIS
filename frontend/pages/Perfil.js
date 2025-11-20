@@ -59,10 +59,6 @@ export default function Perfil() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Opciones de Pasajero</Text>
 
-          <TouchableOpacity style={styles.button}>
-            <Text style={styles.buttonText}>Mis Reservas</Text>
-          </TouchableOpacity>
-
         </View>
       )}
 
