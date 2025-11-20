@@ -28,7 +28,7 @@ public class Conductor extends Usuario {
 	private Vehiculo vehiculo;
     @JoinColumn(name = "viaje_actual_id") //definiendo la clave foranea
     @OneToOne
-    @JsonIgnoreProperties({"conductor", "coordenadas", "comentarios", "chat"})
+    @JsonIgnoreProperties({"conductor", "coordenadas", "comentarios"})
 	private	Viaje viajeActual;
     @OneToMany(mappedBy = "conductor")// se le dice que ya en viaje esta mapaeado con conductor
     // y la cascada hace que todo lo que le ppase a conductor le pase a sus hijos (viajes)
