@@ -23,6 +23,6 @@ public class Mensaje {
 
     @ManyToOne
     @JoinColumn(name = "chat_id")
-    @JsonIgnoreProperties({"mensajes", "viaje"})
+    @JsonIgnoreProperties({ "viaje"})
     private Chat chat;
 }
