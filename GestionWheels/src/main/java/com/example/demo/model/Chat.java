@@ -16,7 +16,7 @@ public class Chat {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     @OneToOne(cascade = CascadeType.ALL)
-    @JsonIgnoreProperties({"chat", "conductor", "pasajeros", "coordenadas", "comentarios"})
+    @JsonIgnoreProperties({ "coordenadas", "comentarios"})
     @JoinColumn(name = "viaje_id")
     @JsonBackReference
     private Viaje viaje;
