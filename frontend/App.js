@@ -30,7 +30,7 @@ const linking = {
             RegistroUsuario: 'RegistroUsuario',
             HomeConductor: 'HomeConductor',
             HomePasajero: 'HomePasajero',
-            Chat: 'chat',
+            chat: 'chat',
             Perfil: 'Perfil',
             CrearViaje: 'CrearViaje',
             RegistrarVehiculo: 'RegistrarVehiculo',
@@ -253,6 +253,15 @@ function AppNavigator() {
                     )}
                 </>
             )}
+           <Stack.Screen
+                name="Chat"
+                component={ChatScreen}
+                options={{
+                    headerShown: true,
+                    headerTitle: 'Chat del Viaje',
+                    headerBackTitle: 'Volver'
+               }} 
+            />
         </Stack.Navigator>
     );
 }

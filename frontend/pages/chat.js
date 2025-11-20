@@ -12,81 +12,73 @@ import {
 } from 'react-native';
 import { Client } from '@stomp/stompjs';
 import { useAuth } from '../context/AuthContext';
-import { WS_URL } from '../services/urls';
 
-
+const WS_URL = 'wss://wheelsuis.onrender.com/chats';
 
 export default function ChatScreen({ route, navigation }) {
-  // El viaje completo viene desde la navegación
-  const { viaje } = route.params;
-  
-  // Usuario actual desde el Context
+  const { viaje } = route.params || {};
   const { usuario } = useAuth();
- 
 
   const [serverState, setServerState] = useState('Conectando...');
   const [messageText, setMessageText] = useState('');
   const [messages, setMessages] = useState([]);
   const [connected, setConnected] = useState(false);
-  
+
   const stompClient = useRef(null);
   const scrollViewRef = useRef(null);
 
-  // Determinar estado del viaje
-  const viajeActivo = viaje.estadoViaje !== 'FINALIZADO' && viaje.estadoViaje !== 'CANCELADO';
-  const chatHabilitado = viajeActivo && viaje.chat?.id;
+  const viajeActivo = viaje?.estadoViaje !== 'FINALIZADO' && viaje?.estadoViaje !== 'CANCELADO';
+  const chatHabilitado = viajeActivo && viaje?.chat?.id;
 
-  // Determinar si el usuario es el conductor
-  const esConductor = usuario.id === viaje.conductor?.id;
-  
-  // Lista de pasajeros para mostrar info
-  const pasajeros = viaje.pasajeros || [];
+  // Detección robusta del rol
+  const esConductor = (usuario?.tipo === 'CONDUCTOR' || usuario?.tipoUsuario === 'CONDUCTOR')
+    && String(usuario?.id) === String(viaje?.conductor?.id);
+  const esPasajero = (usuario?.tipo === 'PASAJERO' || usuario?.tipoUsuario === 'PASAJERO');
+  const pasajeros = viaje?.pasajeros || [];
+
+  // Carga mensajes existentes si los trae el objeto viaje 
+  useEffect(() => {
+    if (viaje?.chat?.mensajes?.length) {
+      setMessages(
+        viaje.chat.mensajes.map(msg => ({
+          id: msg.id,
+          contenido: msg.contenido,
+          autor: msg.autor?.nombre || 'Desconocido',
+          autorId: msg.autor?.id,
+          fechaEnvio: msg.fechaEnvio
+        }))
+      );
+    }
+  }, [viaje?.chat?.mensajes]);
 
   useEffect(() => {
     if (!usuario || !chatHabilitado) {
-      if (!chatHabilitado && viajeActivo) {
-        setServerState('Chat no disponible');
-      }
+      if (!chatHabilitado && viajeActivo) setServerState('Chat no disponible');
       return;
     }
-
     conectarWebSocket();
-
     return () => {
       if (stompClient.current) {
-        console.log('🔌 Desconectando WebSocket...');
         stompClient.current.deactivate();
       }
     };
-  }, [usuario, viaje.id, chatHabilitado]);
+  }, [usuario, viaje?.id, chatHabilitado]);
 
   const conectarWebSocket = () => {
-    console.log(`Conectando al chat del viaje ${viaje.id}...`);
-    
     stompClient.current = new Client({
-      ...(Platform.OS === 'web'
-      ? { brokerURL: WS_URL } 
-      : { webSocketFactory: () => new WebSocket(WS_URL) }), 
-      
+      webSocketFactory: () => new WebSocket(WS_URL),
       reconnectDelay: 5000,
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
 
       onConnect: () => {
-        console.log('Conectado al servidor WebSocket');
         setServerState('Conectado');
         setConnected(true);
-
-        // Suscribirse al topic del viaje
         const topic = `/topic/viaje/${viaje.id}`;
-        console.log(`Suscrito a: ${topic}`);
-        
         stompClient.current.subscribe(topic, (message) => {
           try {
             const receivedMessage = JSON.parse(message.body);
-            console.log('Mensaje recibido:', receivedMessage);
-            
-            setMessages((prevMessages) => [
+            setMessages(prevMessages => [
               ...prevMessages,
               {
                 id: receivedMessage.id,
@@ -96,27 +88,22 @@ export default function ChatScreen({ route, navigation }) {
                 fechaEnvio: receivedMessage.fechaEnvio
               }
             ]);
-          } catch (error) {
-            console.error('Error al parsear mensaje:', error);
-          }
+          } catch (error) {}
         });
       },
 
       onDisconnect: () => {
-        console.log('Desconectado del servidor');
         setServerState('Desconectado');
         setConnected(false);
       },
 
       onStompError: (frame) => {
-        console.error('Error STOMP:', frame.headers.message);
-        setServerState('Error: ' + frame.headers.message);
+        setServerState('Error STOMP: ' + frame.headers.message);
         setConnected(false);
       },
 
       onWebSocketError: (error) => {
-        console.error('Error WebSocket:', error);
-        setServerState('Error de conexión. Verifica tu red y la IP del servidor.');
+        setServerState('Error de conexión. Verifica la red o el servidor.');
         setConnected(false);
       }
     });
@@ -125,215 +112,86 @@ export default function ChatScreen({ route, navigation }) {
   };
 
   const sendMessage = () => {
-    if (!messageText.trim() || !connected || !usuario) return;
-
-    // Validar que el viaje siga activo
-    if (!viajeActivo) {
-      Alert.alert(
-        'Chat cerrado',
-        'Este viaje ha finalizado y el chat ya no está disponible.'
-      );
-      return;
-    }
-
+    if (!messageText.trim() || !connected || !usuario || !viajeActivo) return;
     const mensaje = {
       contenido: messageText.trim(),
-      autor: {
-        id: usuario.id,
-        nombre: usuario.nombre
-      },
-      chat: {
-        id: viaje.chat.id,
-        viaje: {
-          id: viaje.id
-        }
-      }
+      autor: { id: usuario.id, nombre: usuario.nombre },
+      chat: { id: viaje.chat.id, viaje: { id: viaje.id } }
     };
-
     try {
-      console.log('📤 Enviando mensaje:', mensaje);
-      
       stompClient.current.publish({
         destination: '/app/chat.enviar',
         body: JSON.stringify(mensaje)
       });
-
       setMessageText('');
-    } catch (error) {
-      console.error('Error al enviar mensaje:', error);
+    } catch {
       Alert.alert('Error', 'No se pudo enviar el mensaje');
     }
   };
 
-  if (!usuario) {
-    return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>
-          Error: No hay usuario en sesión
-        </Text>
-      </View>
-    );
-  }
-
-  if (!chatHabilitado && viaje.estadoViaje === 'CANCELADO') {
-    return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.infoIcon}>❌</Text>
-        <Text style={styles.infoTitle}>Viaje cancelado</Text>
-        <Text style={styles.infoText}>
-          Este viaje fue cancelado.
-        </Text>
-        <Button 
-          title="Volver" 
-          onPress={() => navigation.goBack()}
-          color="#207636"
-        />
-      </View>
-    );
-  }
-
-  if (!viajeActivo) {
-    return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.infoIcon}>🏁</Text>
-        <Text style={styles.infoTitle}>Viaje finalizado</Text>
-        <Text style={styles.infoText}>
-          Este viaje ha terminado y el chat ya no está disponible.
-        </Text>
-        <Button 
-          title="Volver" 
-          onPress={() => navigation.goBack()}
-          color="#207636"
-        />
-      </View>
-    );
-  }
-
-  if (!chatHabilitado) {
-    return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.infoIcon}>⚠️</Text>
-        <Text style={styles.infoTitle}>Chat no disponible</Text>
-        <Text style={styles.infoText}>
-          El chat de este viaje no está disponible.
-        </Text>
-        <Button 
-          title="Volver" 
-          onPress={() => navigation.goBack()}
-          color="#207636"
-        />
-      </View>
-    );
-  }
+  if (!usuario) return <View style={styles.centerContainer}><Text style={styles.errorText}>Error: No hay usuario en sesión</Text></View>;
+  if (!chatHabilitado && viaje?.estadoViaje === 'CANCELADO')
+    return (<View style={styles.centerContainer}><Text style={styles.infoIcon}>❌</Text>
+      <Text style={styles.infoTitle}>Viaje cancelado</Text>
+      <Text style={styles.infoText}>Este viaje fue cancelado.</Text>
+      <Button title="Volver" onPress={() => navigation.goBack()} color="#207636" />
+    </View>);
+  if (!viajeActivo)
+    return (<View style={styles.centerContainer}><Text style={styles.infoIcon}>🏁</Text>
+      <Text style={styles.infoTitle}>Viaje finalizado</Text>
+      <Text style={styles.infoText}>Este viaje ha terminado y el chat ya no está disponible.</Text>
+      <Button title="Volver" onPress={() => navigation.goBack()} color="#207636" />
+    </View>);
+  if (!chatHabilitado)
+    return (<View style={styles.centerContainer}><Text style={styles.infoIcon}>⚠️</Text>
+      <Text style={styles.infoTitle}>Chat no disponible</Text>
+      <Text style={styles.infoText}>El chat de este viaje no está disponible.</Text>
+      <Button title="Volver" onPress={() => navigation.goBack()} color="#207636" />
+    </View>);
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      {/* Header con info del viaje */}
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.header}>
-        <View style={[
-          styles.statusBar, 
-          { backgroundColor: connected ? '#4CAF50' : '#FF5252' }
-        ]}>
-          <Text style={styles.statusText}>
-            {serverState}
-          </Text>
+        <View style={[styles.statusBar, { backgroundColor: connected ? '#4CAF50' : '#FF5252' }]}>
+          <Text style={styles.statusText}>{serverState}</Text>
         </View>
-        
         <View style={styles.viajeInfo}>
-          {/* Info del conductor */}
-          <Text style={styles.viajeTexto}>
-            🚗 <Text style={styles.nombreUsuario}>
-              {viaje.conductor?.nombre || 'Conductor'}
-            </Text>
-          </Text>
-          
-          {/* Ruta del viaje */}
-          <Text style={styles.rutaDestino}>
-            📍 {viaje.origen} → {viaje.destino}
-          </Text>
-          
-          {/* Hora de salida */}
-          <Text style={styles.rutaHora}>
-            🕐 {new Date(viaje.horaSalida).toLocaleString('es-CO', {
-              day: '2-digit',
-              month: 'short',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            })}
-          </Text>
-          
-          {/* Pasajeros y cupos */}
-          <Text style={styles.cuposInfo}>
-            👥 {pasajeros.length}/{viaje.cuposMaximos} pasajeros
-          </Text>
-          
-          {/* Estado del viaje */}
-          <Text style={styles.rutaEstado}>
-            {viaje.estadoViaje === 'ENCURSO' ? '🚗 En curso' : '⏳ Próximo'}
-          </Text>
+          <Text style={styles.viajeTexto}>🚗 <Text style={styles.nombreUsuario}>{viaje.conductor?.nombre || 'Conductor'}</Text></Text>
+          <Text style={styles.rutaDestino}>📍 {viaje.origen} → {viaje.destino}</Text>
+          <Text style={styles.rutaHora}>🕐 {new Date(viaje.horaSalida).toLocaleString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</Text>
+          <Text style={styles.cuposInfo}>👥 {pasajeros.length}/{viaje.cuposMaximos} pasajeros</Text>
+          <Text style={styles.rutaEstado}>{viaje.estadoViaje === 'ENCURSO' ? '🚗 En curso' : '⏳ Próximo'}</Text>
         </View>
       </View>
-
-      {/* Lista de mensajes */}
-      <ScrollView 
+      <ScrollView
         style={styles.messagesContainer}
         ref={scrollViewRef}
         onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
       >
-        {messages.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>💬</Text>
+        {messages.length === 0
+          ? (<View style={styles.emptyContainer}><Text style={styles.emptyIcon}>💬</Text>
             <Text style={styles.emptyText}>
               {esConductor 
                 ? 'Inicia la conversación con tus pasajeros'
-                : 'Inicia la conversación con el conductor'
-              }
+                : 'Inicia la conversación con el conductor'}
             </Text>
             <Text style={styles.emptySubtext}>
               Usa este chat para coordinar el punto de encuentro o cualquier novedad del viaje
             </Text>
-          </View>
-        ) : (
-          messages.map((msg, index) => {
+          </View>)
+          : messages.map((msg, index) => {
             const esMio = msg.autorId === usuario.id;
-            
             return (
-              <View 
-                key={index} 
-                style={[
-                  styles.messageItem,
-                  esMio ? styles.myMessage : styles.otherMessage
-                ]}
-              >
-                {!esMio && (
-                  <Text style={styles.messageAuthor}>{msg.autor}</Text>
-                )}
-                <Text style={[
-                  styles.messageContent,
-                  esMio && styles.myMessageText
-                ]}>
-                  {msg.contenido}
+              <View key={index}
+                style={[styles.messageItem, esMio ? styles.myMessage : styles.otherMessage]}>
+                {!esMio && <Text style={styles.messageAuthor}>{msg.autor}</Text>}
+                <Text style={[styles.messageContent, esMio && styles.myMessageText]}>{msg.contenido}</Text>
+                <Text style={[styles.messageTime, esMio && styles.myMessageTime]}>
+                  {new Date(msg.fechaEnvio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
                 </Text>
-                <Text style={[
-                  styles.messageTime,
-                  esMio && styles.myMessageTime
-                ]}>
-                  {new Date(msg.fechaEnvio).toLocaleTimeString('es-CO', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                </Text>
-              </View>
-            );
-          })
-        )}
+              </View>);
+          })}
       </ScrollView>
-
-      {/* Input para nuevo mensaje */}
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
@@ -354,6 +212,7 @@ export default function ChatScreen({ route, navigation }) {
     </KeyboardAvoidingView>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
