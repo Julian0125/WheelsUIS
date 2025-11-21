@@ -1,5 +1,6 @@
 package com.example.demo.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
@@ -23,6 +24,6 @@ public class Mensaje {
 
     @ManyToOne
     @JoinColumn(name = "chat_id")
-    @JsonIgnoreProperties({ "viaje"})
+    @JsonBackReference
     private Chat chat;
 }

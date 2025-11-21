@@ -1,6 +1,7 @@
 package com.example.demo.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.*;
 import java.util.ArrayList;
@@ -22,6 +23,7 @@ public class Chat {
     private Viaje viaje;
     
     @OneToMany(mappedBy = "chat", cascade = CascadeType.ALL)
+    @JsonManagedReference
     private List<Mensaje> mensajes = new ArrayList<>();
     
     
