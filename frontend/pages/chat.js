@@ -21,6 +21,10 @@ export default function ChatScreen({ route, navigation }) {
   const { viaje } = route.params || {};
   const { usuario } = useAuth();
 
+  console.log('🧭 route.params en Chat:', route.params);
+  console.log('🧭 viaje en Chat:', viaje);
+  console.log('🧭 usuario en Chat:', usuario);
+
   const [serverState, setServerState] = useState('Conectando...');
   const [messageText, setMessageText] = useState('');
   const [messages, setMessages] = useState([]);
@@ -33,15 +37,19 @@ export default function ChatScreen({ route, navigation }) {
   const viajeActivo = viaje?.estadoViaje !== 'FINALIZADO' && viaje?.estadoViaje !== 'CANCELADO';
   const chatHabilitado = viajeActivo && viaje?.chat?.id;
 
-  // 🔑 clave única para este chat (misma para conductor y pasajero)
   const chatKey = viaje?.chat?.id ? `chat_${viaje.chat.id}` : null;
 
-  // Detección de rol basada en el usuario logueado
   const tipoUsuario = (usuario?.tipoUsuario || usuario?.tipo || '').toUpperCase();
-
   const esConductor = tipoUsuario === 'CONDUCTOR';
   const esPasajero  = tipoUsuario === 'PASAJERO';
 
+  const pasajeros = viaje?.pasajeros || [];
+
+  console.log('🧭 viajeActivo:', viajeActivo);
+  console.log('🧭 viaje.chat:', viaje?.chat);
+  console.log('🧭 chatHabilitado:', chatHabilitado);
+  console.log('🧭 chatKey:', chatKey);
+  console.log('🧭 esConductor:', esConductor, 'esPasajero:', esPasajero);
 
   // ✅ CARGAR MENSAJES: Primero de AsyncStorage, luego del servidor
   useEffect(() => {
@@ -50,45 +58,71 @@ export default function ChatScreen({ route, navigation }) {
     }
   }, [chatKey]);
 
-  const cargarMensajes = async () => {
-    try {
-      setCargandoMensajes(true);
+const cargarMensajes = async () => {
+  try {
+    setCargandoMensajes(true);
 
-      // 1. Cargar mensajes guardados localmente
-      if (chatKey) {
-        const mensajesGuardados = await AsyncStorage.getItem(chatKey);
-        if (mensajesGuardados) {
-          const mensajesParseados = JSON.parse(mensajesGuardados);
-          console.log('💾 Mensajes cargados desde caché:', mensajesParseados.length);
-          setMessages(mensajesParseados);
-        }
+    let mensajesAcumulados = [];
+
+    // 1️⃣ Cargar mensajes guardados localmente
+    if (chatKey) {
+      const mensajesGuardados = await AsyncStorage.getItem(chatKey);
+      if (mensajesGuardados) {
+        mensajesAcumulados = JSON.parse(mensajesGuardados);
+        console.log('💾 Mensajes cargados desde caché:', mensajesAcumulados.length);
       }
-
-      // 2. Si el viaje trae mensajes del servidor, usarlos
-      if (viaje?.chat?.mensajes?.length) {
-        const mensajesServidor = viaje.chat.mensajes.map(msg => ({
-          id: msg.id,
-          contenido: msg.contenido,
-          autor: msg.autor?.nombre || 'Desconocido',
-          autorId: msg.autor?.id,
-          fechaEnvio: msg.fechaEnvio
-        }));
-        
-        console.log('🌐 Mensajes del servidor:', mensajesServidor.length);
-        setMessages(mensajesServidor);
-        
-        // Guardar en caché
-        if (chatKey) {
-          await AsyncStorage.setItem(chatKey, JSON.stringify(mensajesServidor));
-        }
-      }
-
-    } catch (error) {
-      console.error('❌ Error al cargar mensajes:', error);
-    } finally {
-      setCargandoMensajes(false);
     }
-  };
+
+    // 2️⃣ Si el viaje trae mensajes del servidor, fusionarlos
+    if (viaje?.chat?.mensajes?.length) {
+      const mensajesServidor = viaje.chat.mensajes.map(msg => ({
+        id: msg.id,
+        contenido: msg.contenido,
+        autor: msg.autor?.nombre || 'Desconocido',
+        autorId: msg.autor?.id,
+        fechaEnvio: msg.fechaEnvio
+      }));
+
+      console.log('🌐 Mensajes del servidor:', mensajesServidor.length);
+
+      // Fusionar por id (el servidor manda la versión “oficial”)
+      const mapaPorId = new Map();
+
+      // primero los locales
+      mensajesAcumulados.forEach(m => {
+        if (m.id != null) {
+          mapaPorId.set(m.id, m);
+        }
+      });
+
+      // luego los del servidor sobrescriben si existe el mismo id
+      mensajesServidor.forEach(m => {
+        if (m.id != null) {
+          mapaPorId.set(m.id, m);
+        }
+      });
+
+      // resultado fusionado
+      mensajesAcumulados = Array.from(mapaPorId.values())
+        .sort((a, b) => new Date(a.fechaEnvio) - new Date(b.fechaEnvio));
+
+      // actualizar estado y caché
+      setMessages(mensajesAcumulados);
+      if (chatKey) {
+        await AsyncStorage.setItem(chatKey, JSON.stringify(mensajesAcumulados));
+      }
+    } else {
+      // Si el backend no trae nada, nos quedamos solo con la caché
+      setMessages(mensajesAcumulados);
+    }
+
+  } catch (error) {
+    console.error('❌ Error al cargar mensajes:', error);
+  } finally {
+    setCargandoMensajes(false);
+  }
+};
+
 
   // ✅ GUARDAR MENSAJES cada vez que cambien
   useEffect(() => {
@@ -147,16 +181,14 @@ export default function ChatScreen({ route, navigation }) {
             console.log('📩 Mensaje recibido:', receivedMessage);
             
             const nuevoMensaje = {
-              id: receivedMessage.id, // viene del backend (JPA)
+              id: receivedMessage.id,
               contenido: receivedMessage.contenido,
               autor: receivedMessage.autor?.nombre || 'Desconocido',
               autorId: receivedMessage.autor?.id,
               fechaEnvio: receivedMessage.fechaEnvio || new Date().toISOString()
             };
 
-            // ✅ Evitar duplicados / reemplazar temp-...
             setMessages(prevMessages => {
-              // 1️⃣ si ya existe por id, lo actualizamos
               const indexPorId = prevMessages.findIndex(m => m.id === nuevoMensaje.id);
               if (indexPorId !== -1) {
                 const copia = [...prevMessages];
@@ -165,7 +197,6 @@ export default function ChatScreen({ route, navigation }) {
                 return copia;
               }
 
-              // 2️⃣ reemplazar mensaje temporal del mismo autor y contenido
               const indexTemp = prevMessages.findIndex(m =>
                 String(m.autorId) === String(nuevoMensaje.autorId) &&
                 m.contenido === nuevoMensaje.contenido &&
@@ -179,7 +210,6 @@ export default function ChatScreen({ route, navigation }) {
                 return copia;
               }
 
-              // 3️⃣ es realmente nuevo
               console.log('✅ Nuevo mensaje agregado');
               return [...prevMessages, nuevoMensaje];
             });
@@ -212,7 +242,6 @@ export default function ChatScreen({ route, navigation }) {
     stompClient.current.activate();
   };
 
-  // ✅ ENVIAR MENSAJE con UI optimista
   const sendMessage = () => {
     if (!messageText.trim() || !connected || !usuario || !viajeActivo) {
       console.log('⚠️ No se puede enviar mensaje');
@@ -222,7 +251,6 @@ export default function ChatScreen({ route, navigation }) {
     const contenidoMensaje = messageText.trim();
     const tempId = `temp-${Date.now()}`;
     
-    // Mostrar mensaje inmediatamente
     const mensajeOptimista = {
       id: tempId,
       contenido: contenidoMensaje,
@@ -235,7 +263,6 @@ export default function ChatScreen({ route, navigation }) {
     setMessages(prevMessages => [...prevMessages, mensajeOptimista]);
     setMessageText('');
 
-    // Enviar al servidor
     const mensaje = {
       contenido: contenidoMensaje,
       autor: { id: usuario.id, nombre: usuario.nombre },
@@ -243,7 +270,7 @@ export default function ChatScreen({ route, navigation }) {
     };
 
     try {
-      console.log('📡 Enviando al servidor...');
+      console.log('📡 Enviando al servidor...', mensaje);
       
       stompClient.current.publish({
         destination: '/app/chat.enviar',
@@ -254,12 +281,9 @@ export default function ChatScreen({ route, navigation }) {
 
     } catch (error) {
       console.error('❌ Error al enviar:', error);
-      
-      // Eliminar mensaje optimista si falla
       setMessages(prevMessages => 
         prevMessages.filter(m => m.id !== tempId)
       );
-      
       Alert.alert('Error', 'No se pudo enviar el mensaje');
       setMessageText(contenidoMensaje);
     }
@@ -441,6 +465,7 @@ export default function ChatScreen({ route, navigation }) {
     </KeyboardAvoidingView>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
