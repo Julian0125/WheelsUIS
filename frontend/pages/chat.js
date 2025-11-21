@@ -16,6 +16,7 @@ import { useAuth } from '../context/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const WS_URL = 'wss://wheelsuis.onrender.com/chats';
+
 //prueba 
 console.log('🔗 WS_URL:', WS_URL);
 
