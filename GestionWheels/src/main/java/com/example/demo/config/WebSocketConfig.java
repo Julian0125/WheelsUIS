@@ -18,6 +18,7 @@
 		@Override
 		public void registerStompEndpoints(StompEndpointRegistry registry) {
 			registry.addEndpoint("/chats")
-			.setAllowedOriginPatterns("*");
+			.setAllowedOriginPatterns("*")
+			.withSockJS();
 		}
 	}
