@@ -62,10 +62,7 @@ public class Viaje {
     private OffsetDateTime horaSalida;
     private String origen;
     private String destino;
-    
-    @OneToMany(mappedBy = "viaje", orphanRemoval = true,cascade = CascadeType.ALL)// se le dice que ya en coordenda esta mapaeado con coordenda
-    // y la cascada hace que todo lo que le ppase a vaije le pase a sus hijos (coordenada)
-    private List<Coordenada> coordenadas = new ArrayList<>();
+
     
     @OneToMany(mappedBy = "viaje", orphanRemoval = true,cascade = CascadeType.ALL)
     private List<Comentario> comentarios = new ArrayList<>();
