@@ -1,24 +1,16 @@
 import { HTTP_BASE_URL } from './urls';
 
-/**
- * Utilidad: convierte fecha UTC enviada por backend a hora local real
- */
+
 const convertirFechaLocal = (fechaISO) => {
     try {
-        // el backend NO envía zona → RN lo interpreta como UTC
-        const f = new Date(fechaISO);
-        return new Date(
-            f.getUTCFullYear(),
-            f.getUTCMonth(),
-            f.getUTCDate(),
-            f.getUTCHours(),
-            f.getUTCMinutes(),
-            f.getUTCSeconds()
-        );
-    } catch {
+        if (!fechaISO) return null;
+       
         return new Date(fechaISO);
+    } catch {
+        return null; 
     }
 };
+
 
 /**
  * Servicio para manejar búsqueda y reserva de viajes
@@ -179,12 +171,14 @@ const ViajesDisponiblesService = {
      * Formatea hora de salida
      */
     formatearHoraSalida: (fecha) => {
-        const f = convertirFechaLocal(fecha);
-        return f.toLocaleTimeString("es-CO", {
-            hour: "2-digit",
-            minute: "2-digit"
-        });
-    },
+    const f = fecha instanceof Date ? fecha : convertirFechaLocal(fecha);
+    if (!f) return "";
+    return f.toLocaleTimeString("es-CO", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "America/Bogota",
+    });
+},
 
     obtenerIconoVehiculo: (tipo) => {
         const t = (tipo || "").toUpperCase();

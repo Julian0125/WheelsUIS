@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-    View,
+import {View,
     Text,
     TouchableOpacity,
     StyleSheet,
@@ -34,22 +33,11 @@ export default function CrearViaje({ navigation }) {
     // HORA (+10 MINUTOS)
     // ============================
     useEffect(() => {
-        const ahora = new Date();
-        const salidaLocal = new Date(ahora.getTime() + 10 * 60000);
-
-        const salidaUTC = new Date(
-            Date.UTC(
-                salidaLocal.getFullYear(),
-                salidaLocal.getMonth(),
-                salidaLocal.getDate(),
-                salidaLocal.getHours(),
-                salidaLocal.getMinutes(),
-                salidaLocal.getSeconds()
-            )
-        );
-
-        setHoraSalida(salidaUTC);
+    const ahora = new Date();
+    const salida = new Date(ahora.getTime() + 10 * 60000); // +10 min sobre la hora local
+    setHoraSalida(salida);
     }, []);
+
 
     const formatearFecha = (fecha) => {
         if (!fecha) return '';

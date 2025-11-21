@@ -429,7 +429,8 @@ export default function BuscarViaje({ navigation }) {
                                             month: 'long',
                                             day: 'numeric',
                                             hour: '2-digit',
-                                            minute: '2-digit'
+                                            minute: '2-digit',
+                                            timeZone: 'America/Bogota', 
                                         }) : 'Hora no disponible'}
                                     </Text>
                                 </View>

@@ -24,25 +24,17 @@ export default function ViajeActivo({ navigation, route }) {
     const [cancelandoViaje, setCancelandoViaje] = useState(false);
     const [mensajeEstado, setMensajeEstado] = useState('');
 
-    // Convierte fecha del backend a local (si viene string)
+    
     const convertirFechaLocal = (fecha) => {
         if (!fecha) return null;
         try {
-            const f = typeof fecha === 'string' ? new Date(fecha) : fecha;
-            // Si fecha parece UTC sin zona, interpretamos sus componentes UTC
-            const local = new Date(
-                f.getUTCFullYear(),
-                f.getUTCMonth(),
-                f.getUTCDate(),
-                f.getUTCHours(),
-                f.getUTCMinutes(),
-                f.getUTCSeconds()
-            );
-            return local;
+            if (fecha instanceof Date) return fecha;
+            return new Date(fecha);  
         } catch {
-            return new Date(fecha);
+            return null;
         }
     };
+
 
     // Polling para actualizar cupos automáticamente cada 5s
     useEffect(() => {
@@ -129,6 +121,20 @@ export default function ViajeActivo({ navigation, route }) {
         } finally {
             setLoading(false);
         }
+
+
+            if (result && result.success) {
+        const data = result.data;
+
+        console.log('👉 horaSalida cruda desde backend:', data.horaSalida);
+
+        if (data.horaSalida) data.horaSalida = convertirFechaLocal(data.horaSalida);
+        console.log('👉 horaSalida convertida RN:', data.horaSalida);
+
+        setViaje(data);
+        
+    }
+
     };
 
     const onRefresh = async () => {
@@ -227,7 +233,8 @@ export default function ViajeActivo({ navigation, route }) {
                 weekday: 'long',
                 year: 'numeric',
                 month: 'long',
-                day: 'numeric'
+                day: 'numeric',
+                timeZone: 'America/Bogota'
             });
         } catch (error) {
             return 'Error en fecha';
@@ -240,7 +247,8 @@ export default function ViajeActivo({ navigation, route }) {
             const fechaObj = typeof fecha === 'string' ? convertirFechaLocal(fecha) : fecha;
             return fechaObj.toLocaleTimeString('es-CO', {
                 hour: '2-digit',
-                minute: '2-digit'
+                minute: '2-digit',
+                timeZone: 'America/Bogota'
             });
         } catch {
             return 'Error en hora';
