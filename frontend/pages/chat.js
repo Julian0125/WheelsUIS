@@ -14,8 +14,10 @@ import {
 import { Client } from '@stomp/stompjs';
 import { useAuth } from '../context/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import SockJS from 'sockjs-client';
 
-const WS_URL = 'wss://wheelsuis.onrender.com/chats';
+const SOCKET_URL = 'https://wheelsuis.onrender.com/chats';
+
 
 export default function ChatScreen({ route, navigation }) {
   const { viaje } = route.params || {};
@@ -162,7 +164,7 @@ const cargarMensajes = async () => {
     console.log('🔌 Conectando WebSocket...');
     
     stompClient.current = new Client({
-      webSocketFactory: () => new WebSocket(WS_URL),
+      webSocketFactory: () => new SockJS(SOCKET_URL),
       reconnectDelay: 5000,
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,

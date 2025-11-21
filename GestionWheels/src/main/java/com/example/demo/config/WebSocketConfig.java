@@ -21,4 +21,5 @@
 			.setAllowedOriginPatterns("*")
 			.withSockJS();
 		}
+
 	}
