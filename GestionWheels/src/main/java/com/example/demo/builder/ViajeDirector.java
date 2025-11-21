@@ -20,7 +20,7 @@ public class ViajeDirector {
                 conductor.getVehiculo().getTipo() == TipoVehiculo.MOTO) {
             return 1;
         }
-        return 3; // Por defecto si no es moto
+        return 4; // Por defecto si no es moto
     }
 
 
@@ -59,7 +59,7 @@ public class ViajeDirector {
                 .conductor(conductor)
                 .origen("Barrio Mutis")
                 .destino("Universidad")
-                .horaSalida(LocalDateTime.now().plusMinutes(30))
+                .horaSalida(LocalDateTime.now().plusMinutes(15))
                 .cuposMaximos(obtenerCuposPorVehiculo())
                 .estadoViaje(EstadoViaje.CREADO)
                 .build();
@@ -70,7 +70,7 @@ public class ViajeDirector {
                 .conductor(conductor)
                 .origen("Barrio La Cumbre")
                 .destino("Universidad")
-                .horaSalida(LocalDateTime.now().plusMinutes(30))
+                .horaSalida(LocalDateTime.now().plusMinutes(15))
                 .cuposMaximos(obtenerCuposPorVehiculo())
                 .estadoViaje(EstadoViaje.CREADO)
                 .build();
