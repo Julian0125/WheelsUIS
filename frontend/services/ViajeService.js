@@ -100,7 +100,39 @@ const ViajeService = {
         }
     },
 
+    // ===================================================
+    // OBTENER VIAJE ACTUAL DEL PASAJERO
+    // ===================================================
+    obtenerViajeActualPasajero: async (idPasajero) => {
+        try {
+            console.log("🔍 Obteniendo viaje actual del pasajero:", idPasajero);
 
+            const response = await fetch(
+                `${HTTP_BASE_URL}/viaje/pasajero/${idPasajero}/actual`
+            );
+
+            if (!response.ok) {
+                return {
+                    success: false,
+                    error: "No hay viaje activo"
+                };
+            }
+
+            const viaje = await response.json();
+
+            return {
+                success: true,
+                data: normalizarViaje(viaje)
+            };
+
+        } catch (error) {
+            console.error("❌ Error obtenerViajeActualPasajero:", error);
+            return {
+                success: false,
+                error: "Error al obtener viaje actual"
+            };
+        }
+    },
 
     // ===================================================
     // CREAR VIAJE PREDEFINIDO
@@ -279,7 +311,7 @@ const ViajeService = {
         return colores[estado] || "#999";
     },
 
-      enviarComentario: async (idViaje, usuarioId, texto) => {
+    enviarComentario: async (idViaje, usuarioId, texto) => {
         try {
             const response = await fetch(
                 `${HTTP_BASE_URL}/comentario/viaje/${idViaje}`,
@@ -289,7 +321,7 @@ const ViajeService = {
                     body: JSON.stringify({
                         usuarioId,
                         texto,
-                        viajeId: idViaje, 
+                        viajeId: idViaje,
                     }),
                 }
             );

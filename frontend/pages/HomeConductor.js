@@ -31,8 +31,10 @@ export default function HomeConductor({ navigation }) {
         if (result.success) {
             setViajeActual(result.data);
 
-            if (result.data.estadoViaje === "CREADO" || result.data.estadoViaje === "ENCURSO") {
+            if (result.data.estadoViaje === "CREADO") {
                 navigation.replace("ViajeActivo", { viaje: result.data });
+            } else if (result.data.estadoViaje === "ENCURSO") {
+                navigation.replace("ViajeEnCurso", { viaje: result.data });
             }
         } else {
             setViajeActual(null);

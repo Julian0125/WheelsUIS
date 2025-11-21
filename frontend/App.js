@@ -21,6 +21,7 @@ import HistorialViajes from './pages/HistorialViajes';
 import ViajeActivo from './pages/ViajeActivo';
 import BuscarViaje from './pages/BuscarViaje';
 import ViajeActivoPasajero from "./pages/ViajeActivoPasajero";
+import ViajeEnCurso from './pages/ViajeEnCurso';
 
 
 const linking = {
@@ -205,10 +206,19 @@ function AppNavigator() {
                                 }}
                             />
 
-                            {/* 🔥 AQUÍ ESTÁ LA PANTALLA QUE LE FALTABA */}
+
                             <Stack.Screen
                                 name="ViajeActivo"
                                 component={ViajeActivo}
+                                options={{
+                                    headerShown: false,
+                                    gestureEnabled: false,
+                                }}
+                            />
+
+                            <Stack.Screen
+                                name="ViajeEnCurso"
+                                component={ViajeEnCurso}
                                 options={{
                                     headerShown: false,
                                     gestureEnabled: false,
