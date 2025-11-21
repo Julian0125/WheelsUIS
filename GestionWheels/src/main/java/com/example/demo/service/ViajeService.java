@@ -1,12 +1,14 @@
 package com.example.demo.service;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
+
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import com.example.demo.DTO.DTOcrearComentario;
+
 import com.example.demo.DTO.RutasPredefinidas;
 import com.example.demo.model.*;
 import com.example.demo.repository.*;
@@ -65,7 +67,7 @@ public class ViajeService {
 	}
 
 	 public Viaje crearViajePredefinido(int idConductor, String tipo) {
-		    Conductor conductor = conductorRepository.findById((int) idConductor)
+		    Conductor conductor = conductorRepository.findById(idConductor)
 		            .orElseThrow(() -> new RuntimeException("Conductor no encontrado"));
 		    
 		    boolean tieneViajeActivo = viajeRepository.existsByConductorAndEstadoViaje(conductor, EstadoViaje.ENCURSO);
@@ -102,8 +104,8 @@ public class ViajeService {
 	public boolean  iniciarViaje(int  idViaje) {
 		Viaje viaje = viajeRepository.findById(idViaje)
 				.orElseThrow(() -> new IllegalArgumentException("Viaje no encontrado"));
-		LocalDateTime ahora = LocalDateTime.now();
-		LocalDateTime horaSalida = viaje.getHoraSalida();
+		OffsetDateTime ahora = OffsetDateTime.now(ZoneId.of("America/Bogota"));
+		OffsetDateTime horaSalida = viaje.getHoraSalida();
 
 		boolean yaEsHora = !ahora.isBefore(horaSalida);
 		boolean sinCupos = viaje.getPasajeros().size() >= viaje.getCuposMaximos();
