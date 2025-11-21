@@ -1,6 +1,7 @@
 package com.example.demo.model;
 
-import java.time.LocalDateTime;
+
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -58,7 +59,7 @@ public class Viaje {
     @Enumerated(EnumType.STRING)
     private EstadoViaje estadoViaje;
     
-    private LocalDateTime  horaSalida;
+    private OffsetDateTime horaSalida;
     private String origen;
     private String destino;
     

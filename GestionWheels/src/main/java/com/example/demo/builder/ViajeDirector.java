@@ -1,6 +1,8 @@
 package com.example.demo.builder;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 import com.example.demo.model.Conductor;
 import com.example.demo.model.EstadoViaje;
@@ -33,7 +35,7 @@ public class ViajeDirector {
                 .conductor(conductor)
                 .origen("Universidad")
                 .destino("Barrio Mutis")
-                .horaSalida(LocalDateTime.now().plusMinutes(15))
+                .horaSalida(OffsetDateTime.now(ZoneOffset.of("-05:00")).plusMinutes(15))
                 .cuposMaximos(obtenerCuposPorVehiculo())
                 .estadoViaje(EstadoViaje.CREADO)
                 .build();
@@ -44,7 +46,7 @@ public class ViajeDirector {
                 .conductor(conductor)
                 .origen("Universidad")
                 .destino("Barrio La Cumbre")
-                .horaSalida(LocalDateTime.now().plusMinutes(15))
+                .horaSalida(OffsetDateTime.now(ZoneOffset.of("-05:00")).plusMinutes(15))
                 .cuposMaximos(obtenerCuposPorVehiculo())
                 .estadoViaje(EstadoViaje.CREADO)
                 .build();
@@ -59,7 +61,7 @@ public class ViajeDirector {
                 .conductor(conductor)
                 .origen("Barrio Mutis")
                 .destino("Universidad")
-                .horaSalida(LocalDateTime.now().plusMinutes(15))
+                .horaSalida(OffsetDateTime.now(ZoneOffset.of("-05:00")).plusMinutes(15))
                 .cuposMaximos(obtenerCuposPorVehiculo())
                 .estadoViaje(EstadoViaje.CREADO)
                 .build();
@@ -70,7 +72,7 @@ public class ViajeDirector {
                 .conductor(conductor)
                 .origen("Barrio La Cumbre")
                 .destino("Universidad")
-                .horaSalida(LocalDateTime.now().plusMinutes(15))
+                .horaSalida(OffsetDateTime.now(ZoneOffset.of("-05:00")).plusMinutes(15))
                 .cuposMaximos(obtenerCuposPorVehiculo())
                 .estadoViaje(EstadoViaje.CREADO)
                 .build();
