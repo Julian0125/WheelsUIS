@@ -277,7 +277,34 @@ const ViajeService = {
             CANCELADO: "#F44336"
         };
         return colores[estado] || "#999";
-    }
+    },
+
+      enviarComentario: async (idViaje, usuarioId, texto) => {
+        try {
+            const response = await fetch(
+                `${HTTP_BASE_URL}/comentario/viaje/${idViaje}`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        usuarioId,
+                        texto,
+                        viajeId: idViaje, 
+                    }),
+                }
+            );
+
+            if (!response.ok) {
+                const msg = await response.text();
+                throw new Error(msg || 'Error al enviar comentario');
+            }
+
+            return { success: true };
+        } catch (err) {
+            console.error('Error enviarComentario:', err);
+            return { success: false, error: err.message };
+        }
+    },
 };
 
 export default ViajeService;

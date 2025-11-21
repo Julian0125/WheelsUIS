@@ -6,7 +6,9 @@ import {
     TouchableOpacity,
     ScrollView,
     ActivityIndicator,
-    RefreshControl
+    RefreshControl,
+    Modal,
+    TextInput
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -24,17 +26,20 @@ export default function ViajeActivo({ navigation, route }) {
     const [cancelandoViaje, setCancelandoViaje] = useState(false);
     const [mensajeEstado, setMensajeEstado] = useState('');
 
-    
+    // Modal comentario
+    const [modalCalificacionVisible, setModalCalificacionVisible] = useState(false);
+    const [comentario, setComentario] = useState('');
+    const [enviandoComentario, setEnviandoComentario] = useState(false);
+
     const convertirFechaLocal = (fecha) => {
         if (!fecha) return null;
         try {
             if (fecha instanceof Date) return fecha;
-            return new Date(fecha);  
+            return new Date(fecha);
         } catch {
             return null;
         }
     };
-
 
     // Polling para actualizar cupos automáticamente cada 5s
     useEffect(() => {
@@ -52,7 +57,6 @@ export default function ViajeActivo({ navigation, route }) {
             const result = await ViajeService.obtenerViajeActualConductor(usuario.id);
 
             if (result && result.success && result.data) {
-                // Convertir hora si es necesario
                 if (result.data.horaSalida) {
                     result.data.horaSalida = convertirFechaLocal(result.data.horaSalida);
                 }
@@ -70,7 +74,6 @@ export default function ViajeActivo({ navigation, route }) {
     useEffect(() => {
         if (viaje) {
             if (viaje.horaSalida) {
-                // Asegurar tipo Date local
                 viaje.horaSalida = convertirFechaLocal(viaje.horaSalida);
             }
             if (viaje.estadoViaje === 'CREADO') {
@@ -99,20 +102,30 @@ export default function ViajeActivo({ navigation, route }) {
             if (result && result.success) {
                 const data = result.data;
                 if (data.horaSalida) data.horaSalida = convertirFechaLocal(data.horaSalida);
-                setViaje(data);
 
-                if (data.estadoViaje === 'FINALIZADO' || data.estadoViaje === 'CANCELADO') {
+                // FINALIZADO → mostramos modal comentario
+                if (data.estadoViaje === 'FINALIZADO') {
+                    ViajePollingService.detenerMonitoreo();
+                    setViaje(data);
+                    setModalCalificacionVisible(true);
+                    return;
+                }
+
+                // CANCELADO → limpiar y volver al home
+                if (data.estadoViaje === 'CANCELADO') {
                     ViajePollingService.detenerMonitoreo();
                     await ViajeService.limpiarViajeActual();
                     navigation.replace('HomeConductor');
                     return;
                 }
 
+                // CREADO → monitorear
                 if (data.estadoViaje === 'CREADO') {
                     ViajePollingService.iniciarMonitoreo(data.id, handleViajeIniciado);
                 }
+
+                setViaje(data);
             } else {
-                // No hay viaje activo para el conductor
                 navigation.replace('HomeConductor');
             }
         } catch (error) {
@@ -121,20 +134,6 @@ export default function ViajeActivo({ navigation, route }) {
         } finally {
             setLoading(false);
         }
-
-
-            if (result && result.success) {
-        const data = result.data;
-
-        console.log('👉 horaSalida cruda desde backend:', data.horaSalida);
-
-        if (data.horaSalida) data.horaSalida = convertirFechaLocal(data.horaSalida);
-        console.log('👉 horaSalida convertida RN:', data.horaSalida);
-
-        setViaje(data);
-        
-    }
-
     };
 
     const onRefresh = async () => {
@@ -200,12 +199,9 @@ export default function ViajeActivo({ navigation, route }) {
                     const result = await ViajeService.finalizarViaje(viaje.id, usuario.id);
 
                     if (result && result.success) {
-                        await ViajeService.limpiarViajeActual();
-                        AlertService.alert(
-                            '🏁 Viaje Finalizado',
-                            '¡Has completado el viaje!',
-                            [{ text: 'OK', onPress: () => navigation.replace('HomeConductor') }]
-                        );
+                        // no limpiamos aquí, dejamos comentar
+                        setViaje(result.data);
+                        setModalCalificacionVisible(true);
                     } else {
                         AlertService.alert('Error', result?.error || 'No se pudo finalizar el viaje');
                     }
@@ -221,6 +217,45 @@ export default function ViajeActivo({ navigation, route }) {
 
     const handleAbrirChat = () => {
         navigation.navigate('Chat', { viaje });
+    };
+
+    const handleEnviarComentario = async () => {
+        if (!comentario.trim()) {
+            AlertService.alert('Aviso', 'Escribe un comentario antes de enviar.');
+            return;
+        }
+
+        try {
+            setEnviandoComentario(true);
+
+            const result = await ViajeService.enviarComentario(
+                viaje.id,
+                usuario.id,
+                comentario
+            );
+
+            if (result.success) {
+                AlertService.alert(
+                    'Gracias',
+                    'Tu comentario ha sido enviado 😊',
+                    [{
+                        text: 'OK',
+                        onPress: async () => {
+                            await ViajeService.limpiarViajeActual();
+                            setModalCalificacionVisible(false);
+                            navigation.replace('HomeConductor');
+                        }
+                    }]
+                );
+            } else {
+                AlertService.alert('Error', result.error || 'No se pudo enviar el comentario');
+            }
+        } catch (err) {
+            console.error('Error handleEnviarComentario:', err);
+            AlertService.alert('Error', 'No se pudo enviar el comentario');
+        } finally {
+            setEnviandoComentario(false);
+        }
     };
 
     const formatearFecha = (fecha) => {
@@ -296,166 +331,207 @@ export default function ViajeActivo({ navigation, route }) {
     const cuposDisponibles = (viaje.cuposMaximos || 0) - (viaje.pasajeros?.length || 0);
 
     return (
-        <ScrollView
-            style={styles.container}
-            refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#207636']} />
-            }
-        >
-            {/* HEADER */}
-            <View style={styles.header}>
-                <Text style={styles.headerTitleCentered}>Viaje Activo</Text>
-            </View>
-
-            {/* ESTADO */}
-            <View style={[styles.estadoBadge, { backgroundColor: estadoBadge.color }]}>
-                <Ionicons name={estadoBadge.icon} size={24} color="#fff" />
-                <Text style={styles.estadoTexto}>{estadoBadge.texto}</Text>
-            </View>
-
-            {/* MENSAJE DE ESTADO DEL MONITOREO */}
-            {mensajeEstado !== '' && viaje.estadoViaje === 'CREADO' && (
-                <View style={styles.mensajeEstadoBox}>
-                    <Ionicons name="information-circle" size={20} color="#2196F3" />
-                    <Text style={styles.mensajeEstadoTexto}>{mensajeEstado}</Text>
+        <>
+            <ScrollView
+                style={styles.container}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#207636']} />
+                }
+            >
+                {/* HEADER */}
+                <View style={styles.header}>
+                    <Text style={styles.headerTitleCentered}>Viaje Activo</Text>
                 </View>
-            )}
 
-            {/* RUTA */}
-            <View style={styles.card}>
-                <Text style={styles.cardTitle}>📍 Ruta del Viaje</Text>
+                {/* ESTADO */}
+                <View style={[styles.estadoBadge, { backgroundColor: estadoBadge.color }]}>
+                    <Ionicons name={estadoBadge.icon} size={24} color="#fff" />
+                    <Text style={styles.estadoTexto}>{estadoBadge.texto}</Text>
+                </View>
 
-                <View style={styles.rutaContainer}>
-                    <View style={styles.ubicacion}>
-                        <Ionicons name="location" size={28} color="#207636" />
-                        <View style={styles.ubicacionInfo}>
-                            <Text style={styles.ubicacionLabel}>Origen</Text>
-                            <Text style={styles.ubicacionTexto}>{viaje.origen}</Text>
+                {/* MENSAJE DE ESTADO DEL MONITOREO */}
+                {mensajeEstado !== '' && viaje.estadoViaje === 'CREADO' && (
+                    <View style={styles.mensajeEstadoBox}>
+                        <Ionicons name="information-circle" size={20} color="#2196F3" />
+                        <Text style={styles.mensajeEstadoTexto}>{mensajeEstado}</Text>
+                    </View>
+                )}
+
+                {/* RUTA */}
+                <View style={styles.card}>
+                    <Text style={styles.cardTitle}>📍 Ruta del Viaje</Text>
+
+                    <View style={styles.rutaContainer}>
+                        <View style={styles.ubicacion}>
+                            <Ionicons name="location" size={28} color="#207636" />
+                            <View style={styles.ubicacionInfo}>
+                                <Text style={styles.ubicacionLabel}>Origen</Text>
+                                <Text style={styles.ubicacionTexto}>{viaje.origen}</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.lineaDivisora}>
+                            <View style={styles.lineaVertical} />
+                            <Ionicons name="arrow-down" size={24} color="#999" />
+                        </View>
+
+                        <View style={styles.ubicacion}>
+                            <Ionicons name="location" size={28} color="#E63946" />
+                            <View style={styles.ubicacionInfo}>
+                                <Text style={styles.ubicacionLabel}>Destino</Text>
+                                <Text style={styles.ubicacionTexto}>{viaje.destino}</Text>
+                            </View>
                         </View>
                     </View>
-
-                    <View style={styles.lineaDivisora}>
-                        <View style={styles.lineaVertical} />
-                        <Ionicons name="arrow-down" size={24} color="#999" />
-                    </View>
-
-                    <View style={styles.ubicacion}>
-                        <Ionicons name="location" size={28} color="#E63946" />
-                        <View style={styles.ubicacionInfo}>
-                            <Text style={styles.ubicacionLabel}>Destino</Text>
-                            <Text style={styles.ubicacionTexto}>{viaje.destino}</Text>
-                        </View>
-                    </View>
-                </View>
-            </View>
-
-            {/* DETALLES */}
-            <View style={styles.card}>
-                <Text style={styles.cardTitle}>📋 Detalles</Text>
-
-                <View style={styles.detalleRow}>
-                    <Ionicons name="calendar-outline" size={20} color="#666" />
-                    <Text style={styles.detalleTexto}>
-                        {formatearFecha(viaje.horaSalida)}
-                    </Text>
                 </View>
 
-                <View style={styles.detalleRow}>
-                    <Ionicons name="time-outline" size={20} color="#666" />
-                    <Text style={styles.detalleTexto}>
-                        {formatearHora(viaje.horaSalida)}
-                    </Text>
-                </View>
+                {/* DETALLES */}
+                <View style={styles.card}>
+                    <Text style={styles.cardTitle}>📋 Detalles</Text>
 
-                <View style={styles.detalleRow}>
-                    <Ionicons name="people-outline" size={20} color="#666" />
-                    <Text style={styles.detalleTexto}>
-                        {viaje.pasajeros?.length || 0} / {viaje.cuposMaximos || 0} pasajeros
-                    </Text>
-                </View>
-
-                {cuposDisponibles > 0 && (
-                    <View style={styles.cuposDisponiblesBox}>
-                        <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
-                        <Text style={styles.cuposDisponiblesText}>
-                            {cuposDisponibles} {cuposDisponibles === 1 ? 'cupo disponible' : 'cupos disponibles'}
+                    <View style={styles.detalleRow}>
+                        <Ionicons name="calendar-outline" size={20} color="#666" />
+                        <Text style={styles.detalleTexto}>
+                            {formatearFecha(viaje.horaSalida)}
                         </Text>
                     </View>
-                )}
 
-                {viaje.pasajeros && viaje.pasajeros.length > 0 && (
-                    <View style={styles.pasajerosList}>
-                        <Text style={styles.pasajerosTitle}>Pasajeros confirmados:</Text>
-                        {viaje.pasajeros.map((pasajero, index) => (
-                            <View key={index} style={styles.pasajeroItem}>
-                                <Ionicons name="person-circle-outline" size={24} color="#207636" />
-                                <Text style={styles.pasajeroNombre}>{pasajero.nombre}</Text>
-                            </View>
-                        ))}
+                    <View style={styles.detalleRow}>
+                        <Ionicons name="time-outline" size={20} color="#666" />
+                        <Text style={styles.detalleTexto}>
+                            {formatearHora(viaje.horaSalida)}
+                        </Text>
                     </View>
-                )}
-            </View>
 
-            {/* BOTONES DE ACCIÓN */}
-            <View style={styles.botonesContainer}>
-                {viaje.estadoViaje === 'ENCURSO' && (
-                    <>
-                        <TouchableOpacity
-                            style={[styles.botonAccion, styles.botonChat]}
-                            onPress={handleAbrirChat}
-                        >
-                            <Ionicons name="chatbubbles" size={24} color="#fff" />
-                            <Text style={styles.botonAccionTexto}>Abrir Chat</Text>
-                        </TouchableOpacity>
+                    <View style={styles.detalleRow}>
+                        <Ionicons name="people-outline" size={20} color="#666" />
+                        <Text style={styles.detalleTexto}>
+                            {viaje.pasajeros?.length || 0} / {viaje.cuposMaximos || 0} pasajeros
+                        </Text>
+                    </View>
 
+                    {cuposDisponibles > 0 && (
+                        <View style={styles.cuposDisponiblesBox}>
+                            <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+                            <Text style={styles.cuposDisponiblesText}>
+                                {cuposDisponibles} {cuposDisponibles === 1 ? 'cupo disponible' : 'cupos disponibles'}
+                            </Text>
+                        </View>
+                    )}
+
+                    {viaje.pasajeros && viaje.pasajeros.length > 0 && (
+                        <View style={styles.pasajerosList}>
+                            <Text style={styles.pasajerosTitle}>Pasajeros confirmados:</Text>
+                            {viaje.pasajeros.map((pasajero, index) => (
+                                <View key={index} style={styles.pasajeroItem}>
+                                    <Ionicons name="person-circle-outline" size={24} color="#207636" />
+                                    <Text style={styles.pasajeroNombre}>{pasajero.nombre}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    )}
+                </View>
+
+                {/* BOTONES DE ACCIÓN */}
+                <View style={styles.botonesContainer}>
+                    {viaje.estadoViaje === 'ENCURSO' && (
+                        <>
+                            <TouchableOpacity
+                                style={[styles.botonAccion, styles.botonChat]}
+                                onPress={handleAbrirChat}
+                            >
+                                <Ionicons name="chatbubbles" size={24} color="#fff" />
+                                <Text style={styles.botonAccionTexto}>Abrir Chat</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[styles.botonAccion, styles.botonFinalizar]}
+                                onPress={handleFinalizarViaje}
+                                disabled={finalizandoViaje}
+                            >
+                                {finalizandoViaje ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <>
+                                        <Ionicons name="flag" size={24} color="#fff" />
+                                        <Text style={styles.botonAccionTexto}>Finalizar Viaje</Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
+                        </>
+                    )}
+
+                    {(viaje.estadoViaje === 'CREADO' || viaje.estadoViaje === 'ENCURSO') && (
                         <TouchableOpacity
-                            style={[styles.botonAccion, styles.botonFinalizar]}
-                            onPress={handleFinalizarViaje}
-                            disabled={finalizandoViaje}
+                            style={[styles.botonAccion, styles.botonCancelar]}
+                            onPress={handleCancelarViaje}
+                            disabled={cancelandoViaje}
                         >
-                            {finalizandoViaje ? (
+                            {cancelandoViaje ? (
                                 <ActivityIndicator color="#fff" />
                             ) : (
                                 <>
-                                    <Ionicons name="flag" size={24} color="#fff" />
-                                    <Text style={styles.botonAccionTexto}>Finalizar Viaje</Text>
+                                    <Ionicons name="close-circle" size={24} color="#fff" />
+                                    <Text style={styles.botonAccionTexto}>Cancelar Viaje</Text>
                                 </>
                             )}
                         </TouchableOpacity>
-                    </>
-                )}
-
-                {(viaje.estadoViaje === 'CREADO' || viaje.estadoViaje === 'ENCURSO') && (
-                    <TouchableOpacity
-                        style={[styles.botonAccion, styles.botonCancelar]}
-                        onPress={handleCancelarViaje}
-                        disabled={cancelandoViaje}
-                    >
-                        {cancelandoViaje ? (
-                            <ActivityIndicator color="#fff" />
-                        ) : (
-                            <>
-                                <Ionicons name="close-circle" size={24} color="#fff" />
-                                <Text style={styles.botonAccionTexto}>Cancelar Viaje</Text>
-                            </>
-                        )}
-                    </TouchableOpacity>
-                )}
-            </View>
-
-            {/* INFO AUTOMÁTICA */}
-            {viaje.estadoViaje === 'CREADO' && (
-                <View style={styles.infoBox}>
-                    <Ionicons name="information-circle" size={24} color="#2196F3" />
-                    <Text style={styles.infoTexto}>
-                        🤖 El viaje iniciará automáticamente cuando:{'\n\n'}
-                        ✅ Pasen 10 minutos desde su creación{'\n'}
-                        ✅ Se llenen todos los cupos disponibles{'\n\n'}
-                        ⚡ No necesitas hacer nada, el sistema lo hará por ti.
-                    </Text>
+                    )}
                 </View>
+
+                {/* INFO AUTOMÁTICA */}
+                {viaje.estadoViaje === 'CREADO' && (
+                    <View style={styles.infoBox}>
+                        <Ionicons name="information-circle" size={24} color="#2196F3" />
+                        <Text style={styles.infoTexto}>
+                            🤖 El viaje iniciará automáticamente cuando:{'\n\n'}
+                            ✅ Pasen 10 minutos desde su creación{'\n'}
+                            ✅ Se llenen todos los cupos disponibles{'\n\n'}
+                            ⚡ No necesitas hacer nada, el sistema lo hará por ti.
+                        </Text>
+                    </View>
+                )}
+            </ScrollView>
+
+            {/* MODAL COMENTARIO */}
+            {modalCalificacionVisible && (
+                <Modal
+                    transparent
+                    animationType="slide"
+                    visible={modalCalificacionVisible}
+                    onRequestClose={() => {}}
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContainer}>
+                            <Text style={styles.modalTitle}>Califica tu viaje</Text>
+                            <Text style={styles.modalSubtitle}>
+                                Deja un comentario sobre tu experiencia
+                            </Text>
+
+                            <TextInput
+                                style={styles.textArea}
+                                placeholder="Escribe tu comentario..."
+                                multiline
+                                value={comentario}
+                                onChangeText={setComentario}
+                            />
+
+                            <TouchableOpacity
+                                style={styles.btnEnviarComentario}
+                                onPress={handleEnviarComentario}
+                                disabled={enviandoComentario}
+                            >
+                                {enviandoComentario ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.btnEnviarTexto}>Enviar</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </Modal>
             )}
-        </ScrollView>
+        </>
     );
 }
 
@@ -679,6 +755,56 @@ const styles = StyleSheet.create({
         borderRadius: 25,
     },
     botonVolverText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+
+    
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalContainer: {
+        width: '85%',
+        backgroundColor: '#fff',
+        padding: 20,
+        borderRadius: 15,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 5,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginBottom: 10,
+        color: '#333',
+    },
+    modalSubtitle: {
+        fontSize: 14,
+        color: '#666',
+        marginBottom: 15,
+    },
+    textArea: {
+        height: 120,
+        borderColor: '#ccc',
+        borderWidth: 1,
+        borderRadius: 10,
+        padding: 10,
+        textAlignVertical: 'top',
+        marginBottom: 20,
+    },
+    btnEnviarComentario: {
+        backgroundColor: '#207636',
+        paddingVertical: 12,
+        borderRadius: 10,
+        alignItems: 'center',
+    },
+    btnEnviarTexto: {
         color: '#fff',
         fontSize: 16,
         fontWeight: 'bold',
