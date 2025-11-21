@@ -19,14 +19,10 @@ import SockJS from 'sockjs-client';
 const SOCKET_URL = 'https://wheelsuis.onrender.com/chats';
 
 
-//prueba 
-console.log('🔗 WS_URL:', WS_URL);
-
 export default function ChatScreen({ route, navigation }) {
   const { viaje } = route.params || {};
   const { usuario } = useAuth();
 
-  //pruebas
   console.log('🧭 route.params en Chat:', route.params);
   console.log('🧭 viaje en Chat:', viaje);
   console.log('🧭 usuario en Chat:', usuario);
@@ -51,80 +47,86 @@ export default function ChatScreen({ route, navigation }) {
 
   const pasajeros = viaje?.pasajeros || [];
 
-  // prueba consola 
   console.log('🧭 viajeActivo:', viajeActivo);
   console.log('🧭 viaje.chat:', viaje?.chat);
   console.log('🧭 chatHabilitado:', chatHabilitado);
   console.log('🧭 chatKey:', chatKey);
   console.log('🧭 esConductor:', esConductor, 'esPasajero:', esPasajero);
 
-  
+  // ✅ CARGAR MENSAJES: Primero de AsyncStorage, luego del servidor
   useEffect(() => {
     if (chatKey) {
       cargarMensajes();
     }
   }, [chatKey]);
 
-  const cargarMensajes = async () => {
-    try {
-      setCargandoMensajes(true);
+const cargarMensajes = async () => {
+  try {
+    setCargandoMensajes(true);
 
-      let mensajesAcumulados = [];
+    let mensajesAcumulados = [];
 
-      
-      if (chatKey) {
-        const mensajesGuardados = await AsyncStorage.getItem(chatKey);
-        if (mensajesGuardados) {
-          mensajesAcumulados = JSON.parse(mensajesGuardados);
-          console.log('💾 Mensajes cargados desde caché:', mensajesAcumulados.length);
-        }
+    // 1️⃣ Cargar mensajes guardados localmente
+    if (chatKey) {
+      const mensajesGuardados = await AsyncStorage.getItem(chatKey);
+      if (mensajesGuardados) {
+        mensajesAcumulados = JSON.parse(mensajesGuardados);
+        console.log('💾 Mensajes cargados desde caché:', mensajesAcumulados.length);
       }
-
-      
-      if (viaje?.chat?.mensajes?.length) {
-        const mensajesServidor = viaje.chat.mensajes.map(msg => ({
-          id: msg.id,
-          contenido: msg.contenido,
-          autor: msg.autor?.nombre || 'Desconocido',
-          autorId: msg.autor?.id,
-          fechaEnvio: msg.fechaEnvio
-        }));
-
-        console.log('🌐 Mensajes del servidor:', mensajesServidor.length);
-
-        const mapaPorId = new Map();
-
-        mensajesAcumulados.forEach(m => {
-          if (m.id != null) mapaPorId.set(m.id, m);
-        });
-
-        mensajesServidor.forEach(m => {
-          if (m.id != null) mapaPorId.set(m.id, m);
-        });
-
-        mensajesAcumulados = Array.from(mapaPorId.values())
-          .sort((a, b) => new Date(a.fechaEnvio) - new Date(b.fechaEnvio));
-
-        setMessages(mensajesAcumulados);
-
-        if (chatKey) {
-          await AsyncStorage.setItem(chatKey, JSON.stringify(mensajesAcumulados));
-        }
-      } else {
-       
-        setMessages(mensajesAcumulados);
-      }
-
-    } catch (error) {
-      console.error('Error al cargar mensajes:', error);
-    } finally {
-      setCargandoMensajes(false);
     }
-  };
 
-  // ================================
-  // GUARDAR MENSAJES
-  // ================================
+    // 2️⃣ Si el viaje trae mensajes del servidor, fusionarlos
+    if (viaje?.chat?.mensajes?.length) {
+      const mensajesServidor = viaje.chat.mensajes.map(msg => ({
+        id: msg.id,
+        contenido: msg.contenido,
+        autor: msg.autor?.nombre || 'Desconocido',
+        autorId: msg.autor?.id,
+        fechaEnvio: msg.fechaEnvio
+      }));
+
+      console.log('🌐 Mensajes del servidor:', mensajesServidor.length);
+
+      // Fusionar por id (el servidor manda la versión “oficial”)
+      const mapaPorId = new Map();
+
+      // primero los locales
+      mensajesAcumulados.forEach(m => {
+        if (m.id != null) {
+          mapaPorId.set(m.id, m);
+        }
+      });
+
+      // luego los del servidor sobrescriben si existe el mismo id
+      mensajesServidor.forEach(m => {
+        if (m.id != null) {
+          mapaPorId.set(m.id, m);
+        }
+      });
+
+      // resultado fusionado
+      mensajesAcumulados = Array.from(mapaPorId.values())
+        .sort((a, b) => new Date(a.fechaEnvio) - new Date(b.fechaEnvio));
+
+      // actualizar estado y caché
+      setMessages(mensajesAcumulados);
+      if (chatKey) {
+        await AsyncStorage.setItem(chatKey, JSON.stringify(mensajesAcumulados));
+      }
+    } else {
+      // Si el backend no trae nada, nos quedamos solo con la caché
+      setMessages(mensajesAcumulados);
+    }
+
+  } catch (error) {
+    console.error('❌ Error al cargar mensajes:', error);
+  } finally {
+    setCargandoMensajes(false);
+  }
+};
+
+
+  // ✅ GUARDAR MENSAJES cada vez que cambien
   useEffect(() => {
     if (messages.length > 0 && chatKey) {
       guardarMensajes();
@@ -141,9 +143,7 @@ export default function ChatScreen({ route, navigation }) {
     }
   };
 
-  // ================================
-  // CONECTAR WEBSOCKET
-  // ================================
+  // ✅ CONECTAR WEBSOCKET
   useEffect(() => {
     if (!usuario || !chatHabilitado) {
       if (!chatHabilitado && viajeActivo) setServerState('Chat no disponible');
@@ -161,7 +161,7 @@ export default function ChatScreen({ route, navigation }) {
   }, [usuario, viaje?.id, chatHabilitado]);
 
   const conectarWebSocket = () => {
-    console.log('🔌 Conectando WebSocket a:', WS_URL);
+    console.log('🔌 Conectando WebSocket...');
     
     stompClient.current = new Client({
       webSocketFactory: () => new SockJS(SOCKET_URL),
@@ -169,24 +169,18 @@ export default function ChatScreen({ route, navigation }) {
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
 
-      // DEBUG de STOMP
-      debug: (msg) => {
-        console.log('🐛 STOMP DEBUG:', msg);
-      },
-
       onConnect: () => {
         console.log('✅ WebSocket conectado');
         setServerState('Conectado');
         setConnected(true);
         
         const topic = `/topic/viaje/${viaje.id}`;
-        console.log('Suscrito a:', topic);
+        console.log('📡 Suscrito a:', topic);
         
         stompClient.current.subscribe(topic, (message) => {
-          console.log('RAW recibido:', message.body);
           try {
             const receivedMessage = JSON.parse(message.body);
-            console.log('Mensaje recibido:', receivedMessage);
+            console.log('📩 Mensaje recibido:', receivedMessage);
             
             const nuevoMensaje = {
               id: receivedMessage.id,
@@ -196,9 +190,7 @@ export default function ChatScreen({ route, navigation }) {
               fechaEnvio: receivedMessage.fechaEnvio || new Date().toISOString()
             };
 
-           
             setMessages(prevMessages => {
-             
               const indexPorId = prevMessages.findIndex(m => m.id === nuevoMensaje.id);
               if (indexPorId !== -1) {
                 const copia = [...prevMessages];
@@ -207,7 +199,6 @@ export default function ChatScreen({ route, navigation }) {
                 return copia;
               }
 
-             
               const indexTemp = prevMessages.findIndex(m =>
                 String(m.autorId) === String(nuevoMensaje.autorId) &&
                 m.contenido === nuevoMensaje.contenido &&
@@ -221,34 +212,30 @@ export default function ChatScreen({ route, navigation }) {
                 return copia;
               }
 
-             
-              console.log('Nuevo mensaje agregado');
+              console.log('✅ Nuevo mensaje agregado');
               return [...prevMessages, nuevoMensaje];
             });
 
           } catch (error) {
-            console.error('Error al parsear mensaje:', error);
+            console.error('❌ Error al parsear mensaje:', error);
           }
         });
       },
 
       onDisconnect: () => {
-        console.log('WebSocket desconectado');
+        console.log('❌ WebSocket desconectado');
         setServerState('Desconectado');
         setConnected(false);
       },
 
       onStompError: (frame) => {
-        console.error('Error STOMP:', frame.headers.message, frame.body);
+        console.error('❌ Error STOMP:', frame.headers.message);
         setServerState('Error: ' + frame.headers.message);
         setConnected(false);
       },
 
       onWebSocketError: (error) => {
-        console.error('Error WebSocket RAW:', error);
-        try {
-          console.error('Error WebSocket JSON:', JSON.stringify(error));
-        } catch (_) {}
+        console.error('❌ Error WebSocket:', error);
         setServerState('Error de conexión');
         setConnected(false);
       }
@@ -257,10 +244,9 @@ export default function ChatScreen({ route, navigation }) {
     stompClient.current.activate();
   };
 
- 
   const sendMessage = () => {
     if (!messageText.trim() || !connected || !usuario || !viajeActivo) {
-      console.log('No se puede enviar mensaje');
+      console.log('⚠️ No se puede enviar mensaje');
       return;
     }
 
@@ -275,7 +261,7 @@ export default function ChatScreen({ route, navigation }) {
       fechaEnvio: new Date().toISOString()
     };
 
-    console.log('Mensaje optimista:', mensajeOptimista);
+    console.log('📤 Mensaje optimista:', mensajeOptimista);
     setMessages(prevMessages => [...prevMessages, mensajeOptimista]);
     setMessageText('');
 
@@ -286,17 +272,17 @@ export default function ChatScreen({ route, navigation }) {
     };
 
     try {
-      console.log('Enviando al servidor...', mensaje);
+      console.log('📡 Enviando al servidor...', mensaje);
       
       stompClient.current.publish({
         destination: '/app/chat.enviar',
         body: JSON.stringify(mensaje)
       });
 
-      console.log('Mensaje enviado');
+      console.log('✅ Mensaje enviado');
 
     } catch (error) {
-      console.error('Error al enviar:', error);
+      console.error('❌ Error al enviar:', error);
       setMessages(prevMessages => 
         prevMessages.filter(m => m.id !== tempId)
       );
@@ -305,7 +291,7 @@ export default function ChatScreen({ route, navigation }) {
     }
   };
 
- 
+  // ✅ VALIDACIONES
   if (!usuario) {
     return (
       <View style={styles.centerContainer}>
@@ -360,7 +346,6 @@ export default function ChatScreen({ route, navigation }) {
     );
   }
 
-
   return (
     <KeyboardAvoidingView 
       style={styles.container} 
@@ -407,7 +392,7 @@ export default function ChatScreen({ route, navigation }) {
         </View>
       </View>
 
-      
+      {/* Mensajes */}
       <ScrollView
         style={styles.messagesContainer}
         ref={scrollViewRef}
@@ -461,7 +446,7 @@ export default function ChatScreen({ route, navigation }) {
         )}
       </ScrollView>
 
- 
+      {/* Input */}
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
@@ -482,6 +467,7 @@ export default function ChatScreen({ route, navigation }) {
     </KeyboardAvoidingView>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
@@ -657,10 +643,4 @@ const styles = StyleSheet.create({
     maxHeight: 100,
     fontSize: 16,
   },
-  messageTemp: {
-    opacity: 0.7,
-  },
 });
-
-
-
