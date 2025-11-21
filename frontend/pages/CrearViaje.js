@@ -29,14 +29,7 @@ export default function CrearViaje({ navigation }) {
     const [modalOrigenVisible, setModalOrigenVisible] = useState(false);
     const [modalDestinoVisible, setModalDestinoVisible] = useState(false);
 
-    // ============================
-    // HORA (+10 MINUTOS)
-    // ============================
-    useEffect(() => {
-    const ahora = new Date();
-    const salida = new Date(ahora.getTime() + 10 * 60000); // +10 min sobre la hora local
-    setHoraSalida(salida);
-    }, []);
+ 
 
 
     const formatearFecha = (fecha) => {
@@ -124,9 +117,17 @@ export default function CrearViaje({ navigation }) {
 
                 if (response.ok) {
                     const data = await response.json();
-                    // Aseguramos que venga como array de {origen, destino}
-                    if (Array.isArray(data)) setRutasDisponibles(data);
-                    else setRutasDisponibles([]);
+                    // Aseguramos que venga como array de {origen, destino, horaSalida}
+                    if (Array.isArray(data)) {
+                        setRutasDisponibles(data);
+
+                        // Asignamos la hora de la primera ruta (o la que quieras) al estado horaSalida
+                        if (data.length > 0 && data[0].horaSalida) {
+                            setHoraSalida(new Date(data[0].horaSalida));
+                        }
+                    } else {
+                        setRutasDisponibles([]);
+                    }
                 } else {
                     usarRutasLocales();
                 }
