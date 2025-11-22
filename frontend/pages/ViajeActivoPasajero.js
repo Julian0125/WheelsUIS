@@ -13,7 +13,7 @@ export default function ViajeActivoPasajero({ navigation, route }) {
     const intervalRef = useRef(null);
     const isNavigatingRef = useRef(false); // Evitar múltiples navegaciones
     const intentosRef = useRef(0); // Contador de intentos fallidos
-    const MAX_INTENTOS_BACKEND = 3; // Número de intentos antes de confiar solo en storage
+    const MAX_INTENTOS_BACKEND = 1000; // Número de intentos antes de confiar solo en storage
 
     // 🔥 Polling para detectar cambios de estado
     useEffect(() => {
