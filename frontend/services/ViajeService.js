@@ -19,10 +19,10 @@ const ViajeService = {
     // ===================================================
     // STORAGE
     // ===================================================
-    guardarViajeActual: async (viaje) => {
+    async guardarViajeActual(viaje) {
         try {
             await AsyncStorage.setItem('viajeActual', JSON.stringify(viaje));
-            console.log('✅ Viaje guardado en AsyncStorage:', viaje.id);
+            console.log('✅ Viaje guardado en storage:', viaje.id);
             return true;
         } catch (error) {
             console.error('Error al guardar viaje:', error);
@@ -30,12 +30,11 @@ const ViajeService = {
         }
     },
 
-    obtenerViajeDesdeStorage: async () => {
+    async obtenerViajeDesdeStorage() {
         try {
-            const viajeGuardado = await AsyncStorage.getItem('viajeActual');
-            if (viajeGuardado) {
-                const viaje = normalizarViaje(JSON.parse(viajeGuardado));
-                return viaje;
+            const viajeStr = await AsyncStorage.getItem('viajeActual');
+            if (viajeStr) {
+                return JSON.parse(viajeStr);
             }
             return null;
         } catch (error) {
@@ -44,12 +43,13 @@ const ViajeService = {
         }
     },
 
-    limpiarViajeActual: async () => {
+    async limpiarViajeActual() {
         try {
             await AsyncStorage.removeItem('viajeActual');
+            console.log('🗑️ Viaje eliminado del storage');
             return true;
         } catch (error) {
-            console.error('Error al limpiar storage:', error);
+            console.error('Error al limpiar viaje:', error);
             return false;
         }
     },
@@ -103,33 +103,52 @@ const ViajeService = {
     // ===================================================
     // OBTENER VIAJE ACTUAL DEL PASAJERO
     // ===================================================
-    obtenerViajeActualPasajero: async (idPasajero) => {
+    async obtenerViajeActualPasajero(pasajeroId) {
         try {
-            console.log("🔍 Obteniendo viaje actual del pasajero:", idPasajero);
-
             const response = await fetch(
-                `${HTTP_BASE_URL}/viaje/pasajero/${idPasajero}/actual`
+                `${HTTP_BASE_URL}/viaje/pasajero/${pasajeroId}/actual`,
+                {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                }
             );
 
-            if (!response.ok) {
+            // Si es 400 o 404, significa que no hay viaje activo
+            if (response.status === 400 || response.status === 404) {
+                console.log('No hay viaje activo en el backend');
                 return {
                     success: false,
-                    error: "No hay viaje activo"
+                    error: 'No hay viaje activo',
+                    noActiveTrip: true // Flag especial
                 };
             }
 
-            const viaje = await response.json();
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
 
-            return {
-                success: true,
-                data: normalizarViaje(viaje)
-            };
+            const data = await response.json();
 
-        } catch (error) {
-            console.error("❌ Error obtenerViajeActualPasajero:", error);
+            if (data && data.id) {
+                return {
+                    success: true,
+                    data: data
+                };
+            }
+
             return {
                 success: false,
-                error: "Error al obtener viaje actual"
+                error: 'No se encontró viaje activo',
+                noActiveTrip: true
+            };
+        } catch (error) {
+            console.error('Error en obtenerViajeActualPasajero:', error);
+            return {
+                success: false,
+                error: error.message || 'Error al obtener viaje',
+                networkError: true // Flag para errores de red
             };
         }
     },

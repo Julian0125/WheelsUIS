@@ -22,6 +22,7 @@ import ViajeActivo from './pages/ViajeActivo';
 import BuscarViaje from './pages/BuscarViaje';
 import ViajeActivoPasajero from "./pages/ViajeActivoPasajero";
 import ViajeEnCurso from './pages/ViajeEnCurso';
+import ViajeEnCursoPasajero from "./pages/ViajeEnCursoPasajero";
 
 
 const linking = {
@@ -267,7 +268,14 @@ function AppNavigator() {
                                 options={{ headerShown: false, gestureEnabled: false }}
                             />
 
-
+                            <Stack.Screen
+                                name="ViajeEnCursoPasajero"
+                                component={ViajeEnCursoPasajero}
+                                options={{
+                                    headerShown: false,
+                                    gestureEnabled: false
+                                }}
+                            />
                         </>
                     )}
                 </>

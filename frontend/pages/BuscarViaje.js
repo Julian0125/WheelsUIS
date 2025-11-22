@@ -44,31 +44,42 @@ export default function BuscarViaje({ navigation }) {
 
     const cargarViajes = async () => {
         try {
-            // mostramos indicador en la zona de resultados
             setLoading(true);
 
-            // Si hay usuario, verificar si ya tiene viaje activo (servicio puede devolver tieneViajeActivo)
             if (usuario?.id) {
                 try {
                     const verificacion = await ViajesDisponiblesService.verificarViajeActivo(usuario.id);
 
                     if (verificacion?.tieneViajeActivo) {
-                        // Si el backend devuelve datos del viaje, lo mostramos
                         if (verificacion.data) {
+                            // 🔥 Redirigir según el estado del viaje
+                            const viajeActivo = verificacion.data;
+
                             AlertService.alert(
                                 'Viaje Activo',
                                 'Ya tienes un viaje activo. Te llevaremos al detalle de tu viaje actual.',
-                                [{ text: 'Ver mi viaje', onPress: () => navigation.replace('ViajeActivo', { viaje: verificacion.data }) }]
+                                [{
+                                    text: 'Ver mi viaje',
+                                    onPress: () => {
+                                        if (viajeActivo.estadoViaje === "CREADO") {
+                                            navigation.replace('ViajeActivoPasajero', { viaje: viajeActivo });
+                                        } else if (viajeActivo.estadoViaje === "ENCURSO") {
+                                            navigation.replace('ViajeEnCursoPasajero', { viaje: viajeActivo });
+                                        }
+                                    }
+                                }]
                             );
                             return;
                         } else {
-                            // Tiene viaje activo sin datos -> no permitir unirse
-                            AlertService.alert('Viaje Activo', 'Ya tienes un viaje activo. No puedes unirte a otro hasta que termine.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+                            AlertService.alert(
+                                'Viaje Activo',
+                                'Ya tienes un viaje activo. No puedes unirte a otro hasta que termine.',
+                                [{ text: 'OK', onPress: () => navigation.goBack() }]
+                            );
                             return;
                         }
                     }
                 } catch (err) {
-                    // Si falla la verificación no bloqueamos la carga de viajes (fallo tolerante)
                     console.warn('No se pudo verificar viaje activo (no crítico):', err);
                 }
             }
@@ -169,12 +180,23 @@ export default function BuscarViaje({ navigation }) {
             );
 
             if (result.success) {
-                // guardar viaje activo en storage
-                await ViajeService.guardarViajeActual(result.data);
+                // Serializar el viaje antes de guardar (convertir fechas a strings)
+                const viajeSerializado = {
+                    ...result.data,
+                    horaSalida: result.data.horaSalida ? result.data.horaSalida.toString() : null,
+                    horaLlegada: result.data.horaLlegada ? result.data.horaLlegada.toString() : null,
+                };
+
+                // guardar viaje SERIALIZADO en storage
+                await ViajeService.guardarViajeActual(viajeSerializado);
 
                 setModalVisible(false);
 
-                navigation.replace("ViajeActivoPasajero", { viaje: result.data });
+                // Pequeño delay para asegurar que el storage se guarde
+                setTimeout(() => {
+                    // Pasar viaje SERIALIZADO en navegación
+                    navigation.replace("ViajeActivoPasajero", { viaje: viajeSerializado });
+                }, 100);
             } else {
                 AlertService.alert('Error', result.error);
             }

@@ -13,8 +13,14 @@ export default function HomePasajero({ navigation }) {
 
     const verificarViajeActivo = async () => {
         const viaje = await ViajeService.obtenerViajeDesdeStorage();
-        if (viaje && viaje.estadoViaje !== "FINALIZADO" && viaje.estadoViaje !== "CANCELADO") {
-            navigation.replace("ViajeActivoPasajero", { viaje });
+        if (viaje) {
+            // 🔥 Redirigir según el estado del viaje
+            if (viaje.estadoViaje === "CREADO") {
+                navigation.replace("ViajeActivoPasajero", { viaje });
+            } else if (viaje.estadoViaje === "ENCURSO") {
+                navigation.replace("ViajeEnCursoPasajero", { viaje });
+            }
+            // Si es FINALIZADO o CANCELADO, se queda en el home
         }
     };
 
